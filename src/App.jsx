@@ -21,6 +21,7 @@ import Reports from '@/pages/Reports';
 import Settings from '@/pages/Settings';
 import Subscription from '@/pages/Subscription';
 import AdminPanel from '@/pages/AdminPanel';
+import FinancialSettings from '@/pages/FinancialSettings';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -58,6 +59,7 @@ const AuthenticatedApp = () => {
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/assinatura" element={<Subscription />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin/financeiro" element={<FinancialSettings />} />
           </Route>
           <Route path="*" element={<PageNotFound />} />
         </Routes>

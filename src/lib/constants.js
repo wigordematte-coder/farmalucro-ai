@@ -10,6 +10,7 @@ export const NAV_ITEMS = [
   { label: 'Configurações', path: '/configuracoes', icon: 'Settings' },
   { label: 'Assinatura', path: '/assinatura', icon: 'CreditCard' },
   { label: 'Painel Admin', path: '/admin', icon: 'ShieldCheck', adminOnly: true },
+  { label: 'Config. Financeiras', path: '/admin/financeiro', icon: 'Wallet', adminOnly: true },
 ];
 
 export const PROMOTION_TYPES = {

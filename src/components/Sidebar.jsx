@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText, Settings, CreditCard, ShieldCheck, X } from 'lucide-react';
+import { LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText, Settings, CreditCard, ShieldCheck, Wallet, X } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { useSubscription, SUBSCRIPTION_STATUSES } from '@/lib/subscriptionContext';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
 
-const ICONS = { LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText, Settings, CreditCard, ShieldCheck };
+const ICONS = { LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText, Settings, CreditCard, ShieldCheck, Wallet };
 
 export default function Sidebar({ isOpen, onClose }) {
   const { settings } = usePharmacy();

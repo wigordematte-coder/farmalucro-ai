@@ -1,0 +1,73 @@
+{
+  "name": "PaymentGateway",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome do Gateway"
+    },
+    "provider_type": {
+      "type": "string",
+      "enum": [
+        "stripe",
+        "mercadopago",
+        "pagseguro",
+        "asaas",
+        "paggue",
+        "custom"
+      ],
+      "title": "Provedor"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "title": "Status",
+      "default": "inactive"
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "sandbox",
+        "production"
+      ],
+      "title": "Ambiente",
+      "default": "sandbox"
+    },
+    "api_key": {
+      "type": "string",
+      "title": "Token de Acesso (API Key)"
+    },
+    "public_key": {
+      "type": "string",
+      "title": "Chave P\u00fablica"
+    },
+    "secret_key": {
+      "type": "string",
+      "title": "Chave Secreta"
+    },
+    "webhook_url": {
+      "type": "string",
+      "title": "URL de Webhook"
+    },
+    "return_url": {
+      "type": "string",
+      "title": "URL de Retorno"
+    },
+    "confirmation_url": {
+      "type": "string",
+      "title": "URL de Confirma\u00e7\u00e3o"
+    },
+    "is_default": {
+      "type": "boolean",
+      "title": "Gateway Padr\u00e3o",
+      "default": false
+    }
+  },
+  "required": [
+    "name",
+    "provider_type"
+  ]
+}

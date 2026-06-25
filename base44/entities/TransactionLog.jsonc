@@ -1,0 +1,51 @@
+{
+  "name": "TransactionLog",
+  "type": "object",
+  "properties": {
+    "transaction_id": {
+      "type": "string",
+      "title": "C\u00f3digo da Transa\u00e7\u00e3o"
+    },
+    "gateway_name": {
+      "type": "string",
+      "title": "Gateway"
+    },
+    "client_name": {
+      "type": "string",
+      "title": "Cliente"
+    },
+    "client_email": {
+      "type": "string",
+      "title": "E-mail do Cliente"
+    },
+    "amount": {
+      "type": "number",
+      "title": "Valor"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "declined",
+        "pending",
+        "refunded",
+        "cancelled",
+        "error"
+      ],
+      "title": "Status"
+    },
+    "api_message": {
+      "type": "string",
+      "title": "Mensagem da API"
+    },
+    "event_type": {
+      "type": "string",
+      "title": "Tipo de Evento"
+    }
+  },
+  "required": [
+    "transaction_id",
+    "gateway_name",
+    "status"
+  ]
+}

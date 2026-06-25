@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Users, CheckCircle2, AlertTriangle, Lock, DollarSign, TrendingDown, Search, Receipt } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Users, CheckCircle2, AlertTriangle, Lock, DollarSign, TrendingDown, Search, Receipt, Wallet, ChevronRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUSES } from '@/lib/subscriptionContext';
 import { formatCurrency } from '@/lib/pricing';
@@ -83,6 +84,19 @@ export default function AdminPanel() {
         <StatCard icon={AlertTriangle} label="Em Atraso" value={stats.overdue} color="orange" />
         <StatCard icon={Lock} label="Bloqueadas" value={stats.blocked} color="red" />
       </div>
+
+      <Link to="/admin/financeiro" className="flex items-center justify-between bg-card border border-border rounded-2xl p-4 hover:border-accent/30 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Wallet className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground text-sm">Configurações Financeiras</p>
+            <p className="text-xs text-muted-foreground">Gateways de pagamento, webhooks e logs de transações</p>
+          </div>
+        </div>
+        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+      </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <StatCard icon={DollarSign} label="Receita Mensal (MRR)" value={formatCurrency(stats.mrr)} color="accent" />

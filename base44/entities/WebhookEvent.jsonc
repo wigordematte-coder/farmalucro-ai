@@ -1,0 +1,42 @@
+{
+  "name": "WebhookEvent",
+  "type": "object",
+  "properties": {
+    "gateway_name": {
+      "type": "string",
+      "title": "Gateway"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "payment_approved",
+        "payment_declined",
+        "payment_pending",
+        "refund",
+        "cancellation"
+      ],
+      "title": "Tipo de Evento"
+    },
+    "transaction_id": {
+      "type": "string",
+      "title": "ID da Transa\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status"
+    },
+    "payload": {
+      "type": "string",
+      "title": "Payload"
+    },
+    "processed": {
+      "type": "boolean",
+      "title": "Processado",
+      "default": false
+    }
+  },
+  "required": [
+    "gateway_name",
+    "event_type"
+  ]
+}
