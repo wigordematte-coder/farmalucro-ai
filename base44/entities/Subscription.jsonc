@@ -1,0 +1,123 @@
+{
+  "name": "Subscription",
+  "type": "object",
+  "properties": {
+    "plan_name": {
+      "type": "string",
+      "title": "Plano",
+      "default": "FarmaLucro AI Profissional"
+    },
+    "plan_price": {
+      "type": "number",
+      "title": "Valor da Assinatura",
+      "default": 197.0
+    },
+    "billing_cycle": {
+      "type": "string",
+      "enum": [
+        "monthly"
+      ],
+      "title": "Ciclo de Cobran\u00e7a",
+      "default": "monthly"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "active",
+        "pending_payment",
+        "overdue",
+        "blocked",
+        "cancelled"
+      ],
+      "title": "Status da Assinatura",
+      "default": "trial"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "pix",
+        "credit_card"
+      ],
+      "title": "M\u00e9todo de Pagamento"
+    },
+    "auto_renew": {
+      "type": "boolean",
+      "title": "Renova\u00e7\u00e3o Autom\u00e1tica",
+      "default": true
+    },
+    "trial_start_date": {
+      "type": "string",
+      "format": "date",
+      "title": "In\u00edcio do Trial"
+    },
+    "trial_end_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Fim do Trial"
+    },
+    "next_billing_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Pr\u00f3xima Cobran\u00e7a"
+    },
+    "last_payment_date": {
+      "type": "string",
+      "format": "date",
+      "title": "\u00daltimo Pagamento"
+    },
+    "card_last_digits": {
+      "type": "string",
+      "title": "\u00daltimos D\u00edgitos do Cart\u00e3o"
+    },
+    "card_brand": {
+      "type": "string",
+      "title": "Bandeira do Cart\u00e3o"
+    },
+    "card_token": {
+      "type": "string",
+      "title": "Token do Cart\u00e3o"
+    },
+    "cancelled_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Cancelamento"
+    },
+    "cancellation_reason": {
+      "type": "string",
+      "title": "Motivo do Cancelamento"
+    },
+    "billing_company_name": {
+      "type": "string",
+      "title": "Nome da Empresa"
+    },
+    "billing_cnpj": {
+      "type": "string",
+      "title": "CNPJ"
+    },
+    "billing_responsible_name": {
+      "type": "string",
+      "title": "Respons\u00e1vel"
+    },
+    "billing_email": {
+      "type": "string",
+      "title": "E-mail de Faturamento"
+    },
+    "billing_phone": {
+      "type": "string",
+      "title": "Telefone"
+    },
+    "billing_whatsapp": {
+      "type": "string",
+      "title": "WhatsApp"
+    },
+    "allow_whatsapp_notifications": {
+      "type": "boolean",
+      "title": "Permitir Notifica\u00e7\u00f5es no WhatsApp",
+      "default": false
+    }
+  },
+  "required": [
+    "plan_name"
+  ]
+}

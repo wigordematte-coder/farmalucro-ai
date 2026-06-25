@@ -1,0 +1,57 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "title": "Valor",
+      "default": 197.0
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "pix",
+        "credit_card"
+      ],
+      "title": "M\u00e9todo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "failed",
+        "refunded",
+        "expired"
+      ],
+      "title": "Status",
+      "default": "pending"
+    },
+    "payment_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data do Pagamento"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Vencimento"
+    },
+    "transaction_id": {
+      "type": "string",
+      "title": "ID da Transa\u00e7\u00e3o"
+    },
+    "receipt_url": {
+      "type": "string",
+      "title": "Comprovante"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descri\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "amount",
+    "method"
+  ]
+}

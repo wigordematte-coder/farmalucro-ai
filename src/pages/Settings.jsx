@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Save, Building2, Percent, Target, CreditCard, Upload, Loader2, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Save, Building2, Percent, Target, CreditCard, Upload, Loader2, CheckCircle2, ChevronRight } from 'lucide-react';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
@@ -139,34 +140,19 @@ export default function Settings() {
         </div>
       </div>
 
-      {settings?.subscription_status && (
-        <div className="bg-card border border-border rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <CreditCard className="w-5 h-5 text-amber-500" />
-            <h2 className="font-semibold text-foreground">Assinatura</h2>
-          </div>
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-            <div>
-              <p className="font-medium text-sm text-foreground">{settings.subscription_plan || 'Plano Mensal Único'}</p>
-              <p className="text-xs text-muted-foreground">
-                {settings.subscription_status === 'active' ? 'Assinatura ativa' :
-                 settings.subscription_status === 'trial' ? `Trial até ${settings.trial_end_date || '—'}` :
-                 settings.subscription_status === 'expired' ? 'Assinatura vencida' : '—'}
-              </p>
-            </div>
-            <span className={cn(
-              "text-xs px-3 py-1 rounded-full font-semibold",
-              settings.subscription_status === 'active' ? 'bg-accent text-accent-foreground' :
-              settings.subscription_status === 'trial' ? 'bg-amber-500 text-white' :
-              'bg-red-500 text-white'
-            )}>
-              {settings.subscription_status === 'active' ? 'ATIVA' :
-               settings.subscription_status === 'trial' ? 'TRIAL' :
-               settings.subscription_status === 'expired' ? 'VENCIDA' : '—'}
-            </span>
-          </div>
+      <Link to="/assinatura" className="block bg-card border border-border rounded-2xl p-5 hover:border-accent/30 transition-colors">
+        <div className="flex items-center gap-2 mb-3">
+          <CreditCard className="w-5 h-5 text-amber-500" />
+          <h2 className="font-semibold text-foreground">Assinatura e Cobrança</h2>
         </div>
-      )}
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+          <div>
+            <p className="font-medium text-sm text-foreground">Gerencie sua assinatura</p>
+            <p className="text-xs text-muted-foreground">Plano, pagamentos, histórico e faturamento</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+        </div>
+      </Link>
 
       <div className="flex items-center gap-3 sticky bottom-20 lg:bottom-4">
         <button

@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import { PharmacyProvider } from '@/lib/pharmacyContext';
+import { SubscriptionProvider } from '@/lib/subscriptionContext';
 import Layout from '@/components/Layout';
 
 import Home from '@/pages/Home';
@@ -18,6 +19,8 @@ import Promotions from '@/pages/Promotions';
 import Marketing from '@/pages/Marketing';
 import Reports from '@/pages/Reports';
 import Settings from '@/pages/Settings';
+import Subscription from '@/pages/Subscription';
+import AdminPanel from '@/pages/AdminPanel';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -41,20 +44,24 @@ const AuthenticatedApp = () => {
 
   return (
     <PharmacyProvider>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/produtos" element={<Products />} />
-          <Route path="/importacao" element={<Import />} />
-          <Route path="/curva-abc" element={<ABC />} />
-          <Route path="/consultor-ia" element={<AIAssistant />} />
-          <Route path="/promocoes" element={<Promotions />} />
-          <Route path="/marketing" element={<Marketing />} />
-          <Route path="/relatorios" element={<Reports />} />
-          <Route path="/configuracoes" element={<Settings />} />
-        </Route>
-        <Route path="*" element={<PageNotFound />} />
-      </Routes>
+      <SubscriptionProvider>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/produtos" element={<Products />} />
+            <Route path="/importacao" element={<Import />} />
+            <Route path="/curva-abc" element={<ABC />} />
+            <Route path="/consultor-ia" element={<AIAssistant />} />
+            <Route path="/promocoes" element={<Promotions />} />
+            <Route path="/marketing" element={<Marketing />} />
+            <Route path="/relatorios" element={<Reports />} />
+            <Route path="/configuracoes" element={<Settings />} />
+            <Route path="/assinatura" element={<Subscription />} />
+            <Route path="/admin" element={<AdminPanel />} />
+          </Route>
+          <Route path="*" element={<PageNotFound />} />
+        </Routes>
+      </SubscriptionProvider>
     </PharmacyProvider>
   );
 };

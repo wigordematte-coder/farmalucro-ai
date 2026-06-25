@@ -8,6 +8,8 @@ export const NAV_ITEMS = [
   { label: 'Marketing', path: '/marketing', icon: 'Megaphone' },
   { label: 'Relatórios', path: '/relatorios', icon: 'FileText' },
   { label: 'Configurações', path: '/configuracoes', icon: 'Settings' },
+  { label: 'Assinatura', path: '/assinatura', icon: 'CreditCard' },
+  { label: 'Painel Admin', path: '/admin', icon: 'ShieldCheck', adminOnly: true },
 ];
 
 export const PROMOTION_TYPES = {

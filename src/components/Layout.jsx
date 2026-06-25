@@ -1,13 +1,27 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Menu, Bell } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
+import BlockedScreen from '@/components/subscription/BlockedScreen';
+import { base44 } from '@/api/base44Client';
 import { usePharmacy } from '@/lib/pharmacyContext';
+import { useSubscription } from '@/lib/subscriptionContext';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { settings } = usePharmacy();
+  const { subscription } = useSubscription();
+  const location = useLocation();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    base44.auth.me().then(user => setIsAdmin(user?.role === 'admin')).catch(() => {});
+  }, []);
+
+  const isBlocked = subscription?.status === 'blocked' && !isAdmin;
+  const allowRoutes = ['/assinatura', '/configuracoes', '/admin'];
+  const showBlocked = isBlocked && !allowRoutes.includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-background">
@@ -45,7 +59,7 @@ export default function Layout({ children }) {
         </header>
 
         <main className="px-4 lg:px-8 py-6 pb-24 lg:pb-8">
-          {children || <Outlet />}
+          {showBlocked ? <BlockedScreen /> : (children || <Outlet />)}
         </main>
       </div>
 
