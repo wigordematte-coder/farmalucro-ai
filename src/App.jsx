@@ -6,12 +6,22 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
-// Add page imports here
+import { PharmacyProvider } from '@/lib/pharmacyContext';
+import Layout from '@/components/Layout';
+
+import Home from '@/pages/Home';
+import Products from '@/pages/Products';
+import Import from '@/pages/Import';
+import ABC from '@/pages/ABC';
+import AIAssistant from '@/pages/AIAssistant';
+import Promotions from '@/pages/Promotions';
+import Marketing from '@/pages/Marketing';
+import Reports from '@/pages/Reports';
+import Settings from '@/pages/Settings';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
-  // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
@@ -20,29 +30,37 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Handle authentication errors
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
       navigateToLogin();
       return null;
     }
   }
 
-  // Render the main app
   return (
-    <Routes>
-      {/* Add your page Route elements here */}
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+    <PharmacyProvider>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/produtos" element={<Products />} />
+          <Route path="/importacao" element={<Import />} />
+          <Route path="/curva-abc" element={<ABC />} />
+          <Route path="/consultor-ia" element={<AIAssistant />} />
+          <Route path="/promocoes" element={<Promotions />} />
+          <Route path="/marketing" element={<Marketing />} />
+          <Route path="/relatorios" element={<Reports />} />
+          <Route path="/configuracoes" element={<Settings />} />
+        </Route>
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </PharmacyProvider>
   );
 };
 
 
 function App() {
-
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>

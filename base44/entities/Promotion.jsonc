@@ -1,0 +1,59 @@
+{
+  "name": "Promotion",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome da Promo\u00e7\u00e3o"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "flash_offer",
+        "buy2_pay_less",
+        "progressive_discount",
+        "buy_and_win",
+        "benefits_club"
+      ],
+      "title": "Tipo de Promo\u00e7\u00e3o"
+    },
+    "product_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Produtos"
+    },
+    "discount": {
+      "type": "number",
+      "title": "Desconto %"
+    },
+    "impact_margin": {
+      "type": "number",
+      "title": "Impacto na Margem %"
+    },
+    "active": {
+      "type": "boolean",
+      "title": "Ativa",
+      "default": true
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de In\u00edcio"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de T\u00e9rmino"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descri\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "name",
+    "type"
+  ]
+}

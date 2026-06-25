@@ -1,0 +1,72 @@
+{
+  "name": "PharmacySettings",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome da Farm\u00e1cia",
+      "default": "Minha Farm\u00e1cia"
+    },
+    "logo": {
+      "type": "string",
+      "title": "Logo (URL)"
+    },
+    "city": {
+      "type": "string",
+      "title": "Cidade"
+    },
+    "cnpj": {
+      "type": "string",
+      "title": "CNPJ"
+    },
+    "min_margin": {
+      "type": "number",
+      "title": "Margem M\u00ednima (%)",
+      "default": 15
+    },
+    "ideal_margin": {
+      "type": "number",
+      "title": "Margem Ideal (%)",
+      "default": 30
+    },
+    "max_margin": {
+      "type": "number",
+      "title": "Margem M\u00e1xima (%)",
+      "default": 50
+    },
+    "objective": {
+      "type": "string",
+      "enum": [
+        "revenue",
+        "profit",
+        "turnover"
+      ],
+      "title": "Objetivo Principal",
+      "default": "profit"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "active",
+        "expired",
+        "cancelled"
+      ],
+      "title": "Status da Assinatura",
+      "default": "trial"
+    },
+    "subscription_plan": {
+      "type": "string",
+      "title": "Plano",
+      "default": "Mensal \u00danico"
+    },
+    "trial_end_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Fim do Trial"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

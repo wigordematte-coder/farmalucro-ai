@@ -1,0 +1,54 @@
+{
+  "name": "Invoice",
+  "type": "object",
+  "properties": {
+    "file_url": {
+      "type": "string",
+      "title": "URL do Arquivo"
+    },
+    "file_name": {
+      "type": "string",
+      "title": "Nome do Arquivo"
+    },
+    "file_type": {
+      "type": "string",
+      "enum": [
+        "xml",
+        "pdf",
+        "image"
+      ],
+      "title": "Tipo de Arquivo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processed",
+        "error"
+      ],
+      "title": "Status",
+      "default": "pending"
+    },
+    "extracted_count": {
+      "type": "number",
+      "title": "Itens Extra\u00eddos",
+      "default": 0
+    },
+    "supplier": {
+      "type": "string",
+      "title": "Fornecedor"
+    },
+    "invoice_number": {
+      "type": "string",
+      "title": "N\u00famero da Nota"
+    },
+    "total_value": {
+      "type": "number",
+      "title": "Valor Total"
+    }
+  },
+  "required": [
+    "file_url",
+    "file_type"
+  ]
+}

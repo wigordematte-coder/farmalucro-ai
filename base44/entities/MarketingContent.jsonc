@@ -1,0 +1,42 @@
+{
+  "name": "MarketingContent",
+  "type": "object",
+  "properties": {
+    "channel": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "whatsapp",
+        "poster"
+      ],
+      "title": "Canal"
+    },
+    "product_name": {
+      "type": "string",
+      "title": "Produto"
+    },
+    "title": {
+      "type": "string",
+      "title": "T\u00edtulo"
+    },
+    "caption": {
+      "type": "string",
+      "title": "Legenda/Texto"
+    },
+    "hashtags": {
+      "type": "string",
+      "title": "Hashtags"
+    },
+    "cta": {
+      "type": "string",
+      "title": "Chamada para A\u00e7\u00e3o"
+    },
+    "promotion_name": {
+      "type": "string",
+      "title": "Promo\u00e7\u00e3o Vinculada"
+    }
+  },
+  "required": [
+    "channel"
+  ]
+}

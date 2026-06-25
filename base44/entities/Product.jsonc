@@ -1,0 +1,101 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome do Produto"
+    },
+    "manufacturer": {
+      "type": "string",
+      "title": "Fabricante"
+    },
+    "category": {
+      "type": "string",
+      "title": "Categoria"
+    },
+    "barcode": {
+      "type": "string",
+      "title": "C\u00f3digo de Barras"
+    },
+    "cost": {
+      "type": "number",
+      "title": "Custo Unit\u00e1rio"
+    },
+    "quantity": {
+      "type": "number",
+      "title": "Quantidade em Estoque",
+      "default": 0
+    },
+    "abc_class": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B",
+        "C"
+      ],
+      "title": "Classifica\u00e7\u00e3o ABC"
+    },
+    "price_aggressive": {
+      "type": "number",
+      "title": "Pre\u00e7o Agressivo"
+    },
+    "price_balanced": {
+      "type": "number",
+      "title": "Pre\u00e7o Equilibrado"
+    },
+    "price_premium": {
+      "type": "number",
+      "title": "Pre\u00e7o Premium"
+    },
+    "selected_price": {
+      "type": "number",
+      "title": "Pre\u00e7o Selecionado"
+    },
+    "unit_profit": {
+      "type": "number",
+      "title": "Lucro Unit\u00e1rio"
+    },
+    "margin_pct": {
+      "type": "number",
+      "title": "Margem %"
+    },
+    "roi": {
+      "type": "number",
+      "title": "ROI %"
+    },
+    "expiration_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Validade"
+    },
+    "invoice_id": {
+      "type": "string",
+      "title": "ID da Nota Fiscal"
+    },
+    "risk_of_obsolescence": {
+      "type": "boolean",
+      "title": "Risco de Encalhe",
+      "default": false
+    },
+    "high_margin": {
+      "type": "boolean",
+      "title": "Alta Margem",
+      "default": false
+    },
+    "on_promotion": {
+      "type": "boolean",
+      "title": "Em Promo\u00e7\u00e3o",
+      "default": false
+    },
+    "monthly_sales": {
+      "type": "number",
+      "title": "Vendas Mensais",
+      "default": 0
+    }
+  },
+  "required": [
+    "name",
+    "cost"
+  ]
+}
