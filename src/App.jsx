@@ -21,6 +21,13 @@ import Reports from '@/pages/Reports';
 import Settings from '@/pages/Settings';
 import Subscription from '@/pages/Subscription';
 import AdminPanel from '@/pages/AdminPanel';
+import Tenants from '@/pages/superadmin/Tenants';
+import Subscriptions from '@/pages/superadmin/Subscriptions';
+import Revenue from '@/pages/superadmin/Revenue';
+import Plans from '@/pages/superadmin/Plans';
+import SuperAdminUsers from '@/pages/superadmin/Users';
+import AuditLogs from '@/pages/superadmin/AuditLogs';
+import Employees from '@/pages/Employees';
 import FinancialSettings from '@/pages/FinancialSettings';
 
 const AuthenticatedApp = () => {
@@ -59,7 +66,14 @@ const AuthenticatedApp = () => {
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/assinatura" element={<Subscription />} />
             <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin/farmacias" element={<Tenants />} />
+            <Route path="/admin/assinaturas" element={<Subscriptions />} />
+            <Route path="/admin/receita" element={<Revenue />} />
             <Route path="/admin/financeiro" element={<FinancialSettings />} />
+            <Route path="/admin/planos" element={<Plans />} />
+            <Route path="/admin/usuarios" element={<SuperAdminUsers />} />
+            <Route path="/admin/auditoria" element={<AuditLogs />} />
+            <Route path="/funcionarios" element={<Employees />} />
           </Route>
           <Route path="*" element={<PageNotFound />} />
         </Routes>

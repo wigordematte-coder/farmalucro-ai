@@ -1,27 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Menu, Bell } from 'lucide-react';
+import { Menu, Bell, ShieldCheck, Lock } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import BlockedScreen from '@/components/subscription/BlockedScreen';
-import { base44 } from '@/api/base44Client';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { useSubscription } from '@/lib/subscriptionContext';
+import { useUserRole } from '@/lib/roles';
+import { cn } from '@/lib/utils';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { settings } = usePharmacy();
   const { subscription } = useSubscription();
   const location = useLocation();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isSuperAdmin, isAdmin, loading } = useUserRole();
 
-  useEffect(() => {
-    base44.auth.me().then(user => setIsAdmin(user?.role === 'admin')).catch(() => {});
-  }, []);
-
-  const isBlocked = subscription?.status === 'blocked' && !isAdmin;
-  const allowRoutes = ['/assinatura', '/configuracoes', '/admin'];
+  const isBlocked = !isAdmin && subscription?.status === 'blocked';
+  const allowRoutes = ['/assinatura', '/configuracoes'];
   const showBlocked = isBlocked && !allowRoutes.includes(location.pathname);
+
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  const accessDenied = isAdminRoute && !isSuperAdmin;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -38,28 +46,61 @@ export default function Layout({ children }) {
                 <Menu className="w-5 h-5" />
               </button>
               <div>
-                <h2 className="text-base lg:text-lg font-bold text-foreground">
-                  {settings?.name || 'FarmaLucro AI'}
-                </h2>
-                <p className="text-xs text-muted-foreground hidden sm:block">
-                  Precificação inteligente para farmácias
-                </p>
+                {isSuperAdmin ? (
+                  <>
+                    <h2 className="text-base lg:text-lg font-bold text-foreground flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-purple-600" />
+                      Painel Administrativo
+                    </h2>
+                    <p className="text-xs text-muted-foreground hidden sm:block">
+                      FarmaLucro AI — Gestão da Plataforma SaaS
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-base lg:text-lg font-bold text-foreground">
+                      {settings?.name || 'FarmaLucro AI'}
+                    </h2>
+                    <p className="text-xs text-muted-foreground hidden sm:block">
+                      Precificação inteligente para farmácias
+                    </p>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="relative p-2 rounded-lg hover:bg-muted">
-                <Bell className="w-5 h-5 text-muted-foreground" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
-              </button>
-              <div className="w-9 h-9 rounded-full gradient-accent flex items-center justify-center text-white font-semibold text-sm">
-                {(settings?.name?.[0] || 'F').toUpperCase()}
+              {!isSuperAdmin && (
+                <button className="relative p-2 rounded-lg hover:bg-muted">
+                  <Bell className="w-5 h-5 text-muted-foreground" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
+                </button>
+              )}
+              <div className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm",
+                isSuperAdmin ? "bg-purple-600" : "gradient-accent"
+              )}>
+                {isSuperAdmin ? <ShieldCheck className="w-5 h-5" /> : (settings?.name?.[0] || 'F').toUpperCase()}
               </div>
             </div>
           </div>
         </header>
 
         <main className="px-4 lg:px-8 py-6 pb-24 lg:pb-8">
-          {showBlocked ? <BlockedScreen /> : (children || <Outlet />)}
+          {accessDenied ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+                <Lock className="w-8 h-8 text-red-500" />
+              </div>
+              <h2 className="text-lg font-bold text-foreground">Acesso restrito</h2>
+              <p className="text-sm text-muted-foreground text-center max-w-sm">
+                Esta área é exclusiva do Super Administrador. Seu perfil não tem permissão para acessar o painel administrativo da plataforma.
+              </p>
+            </div>
+          ) : showBlocked ? (
+            <BlockedScreen />
+          ) : (
+            (children || <Outlet />)
+          )}
         </main>
       </div>
 

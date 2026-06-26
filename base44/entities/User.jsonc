@@ -1,17 +1,35 @@
 {
+  "name": "User",
+  "type": "object",
   "properties": {
     "role": {
       "type": "string",
-      "description": "The role of the user in the app",
+      "description": "Platform role (admin sees all records, user sees own)",
       "enum": [
         "admin",
         "user"
-      ]
+      ],
+      "default": "user"
+    },
+    "app_role": {
+      "type": "string",
+      "enum": [
+        "super_admin",
+        "pharmacy_admin",
+        "pharmacist",
+        "operator"
+      ],
+      "title": "Papel no Sistema",
+      "description": "Application-level role for RBAC",
+      "default": "operator"
+    },
+    "tenant_id": {
+      "type": "string",
+      "title": "ID da Empresa (Tenant)",
+      "description": "Links this user to a specific pharmacy tenant"
     }
   },
   "required": [
     "role"
-  ],
-  "name": "User",
-  "type": "object"
+  ]
 }

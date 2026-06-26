@@ -1,0 +1,83 @@
+{
+  "name": "Tenant",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome da Farm\u00e1cia"
+    },
+    "cnpj": {
+      "type": "string",
+      "title": "CNPJ"
+    },
+    "city": {
+      "type": "string",
+      "title": "Cidade"
+    },
+    "state": {
+      "type": "string",
+      "title": "Estado"
+    },
+    "responsible_name": {
+      "type": "string",
+      "title": "Respons\u00e1vel"
+    },
+    "responsible_email": {
+      "type": "string",
+      "title": "E-mail do Respons\u00e1vel"
+    },
+    "responsible_phone": {
+      "type": "string",
+      "title": "Telefone"
+    },
+    "plan_id": {
+      "type": "string",
+      "title": "ID do Plano"
+    },
+    "plan_name": {
+      "type": "string",
+      "title": "Nome do Plano"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "active",
+        "pending_payment",
+        "overdue",
+        "blocked",
+        "suspended",
+        "cancelled"
+      ],
+      "title": "Status da Assinatura",
+      "default": "trial"
+    },
+    "subscription_start_date": {
+      "type": "string",
+      "format": "date",
+      "title": "In\u00edcio da Assinatura"
+    },
+    "subscription_end_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Validade da Assinatura"
+    },
+    "last_access": {
+      "type": "string",
+      "format": "date-time",
+      "title": "\u00daltimo Acesso"
+    },
+    "is_suspended": {
+      "type": "boolean",
+      "title": "Suspensa",
+      "default": false
+    },
+    "notes": {
+      "type": "string",
+      "title": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

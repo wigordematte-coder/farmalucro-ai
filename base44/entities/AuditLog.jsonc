@@ -1,0 +1,68 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "login",
+        "logout",
+        "price_change",
+        "settings_change",
+        "subscription_change",
+        "gateway_change",
+        "deletion",
+        "plan_change",
+        "super_admin_action",
+        "impersonation",
+        "user_management",
+        "tenant_management",
+        "data_export"
+      ],
+      "title": "A\u00e7\u00e3o"
+    },
+    "entity_type": {
+      "type": "string",
+      "title": "Tipo de Entidade"
+    },
+    "entity_id": {
+      "type": "string",
+      "title": "ID da Entidade"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descri\u00e7\u00e3o"
+    },
+    "user_name": {
+      "type": "string",
+      "title": "Usu\u00e1rio"
+    },
+    "user_email": {
+      "type": "string",
+      "title": "E-mail"
+    },
+    "user_role": {
+      "type": "string",
+      "title": "Papel do Usu\u00e1rio"
+    },
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
+    "tenant_name": {
+      "type": "string",
+      "title": "Nome da Empresa"
+    },
+    "ip_address": {
+      "type": "string",
+      "title": "Endere\u00e7o IP"
+    },
+    "metadata": {
+      "type": "string",
+      "title": "Metadados (JSON)"
+    }
+  },
+  "required": [
+    "action"
+  ]
+}
