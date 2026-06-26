@@ -3,25 +3,31 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Menu, Bell, ShieldCheck, Lock } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
+import TrialBanner from '@/components/TrialBanner';
 import BlockedScreen from '@/components/subscription/BlockedScreen';
+import AwaitingSubscription from '@/components/AwaitingSubscription';
 import { usePharmacy } from '@/lib/pharmacyContext';
-import { useSubscription } from '@/lib/subscriptionContext';
+import { useSubscription, RESTRICTED_ROUTES } from '@/lib/subscriptionContext';
 import { useUserRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { settings } = usePharmacy();
-  const { subscription } = useSubscription();
+  const { subscription, isTrialExpired, isBlocked, isRestricted } = useSubscription();
   const location = useLocation();
   const { isSuperAdmin, isAdmin, loading } = useUserRole();
 
-  const isBlocked = !isAdmin && subscription?.status === 'blocked';
-  const allowRoutes = ['/assinatura', '/configuracoes'];
-  const showBlocked = isBlocked && !allowRoutes.includes(location.pathname);
-
   const isAdminRoute = location.pathname.startsWith('/admin');
   const accessDenied = isAdminRoute && !isSuperAdmin;
+
+  const isRestrictedRoute = !isAdmin && isRestricted && RESTRICTED_ROUTES.some(route =>
+    location.pathname === route || location.pathname.startsWith(route + '/')
+  );
+
+  const allowRoutes = ['/assinatura', '/configuracoes', '/perfil'];
+  const showBlocked = isBlocked && !allowRoutes.includes(location.pathname) && !isAdminRoute;
+  const showAwaiting = isTrialExpired && !allowRoutes.includes(location.pathname) && !isAdminRoute;
 
   if (loading) {
     return (
@@ -39,10 +45,7 @@ export default function Layout({ children }) {
         <header className="sticky top-0 z-30 glass border-b border-border">
           <div className="flex items-center justify-between px-4 lg:px-8 py-3.5">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-muted"
-              >
+              <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-muted">
                 <Menu className="w-5 h-5" />
               </button>
               <div>
@@ -50,7 +53,7 @@ export default function Layout({ children }) {
                   <>
                     <h2 className="text-base lg:text-lg font-bold text-foreground flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-purple-600" />
-                      Painel Administrativo
+                      Painel do Desenvolvedor
                     </h2>
                     <p className="text-xs text-muted-foreground hidden sm:block">
                       FarmaLucro AI — Gestão da Plataforma SaaS
@@ -86,6 +89,12 @@ export default function Layout({ children }) {
         </header>
 
         <main className="px-4 lg:px-8 py-6 pb-24 lg:pb-8">
+          {!isSuperAdmin && subscription?.status === 'trial' && !showAwaiting && !showBlocked && (
+            <div className="mb-4">
+              <TrialBanner />
+            </div>
+          )}
+
           {accessDenied ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
@@ -98,6 +107,10 @@ export default function Layout({ children }) {
             </div>
           ) : showBlocked ? (
             <BlockedScreen />
+          ) : showAwaiting ? (
+            <AwaitingSubscription />
+          ) : isRestrictedRoute ? (
+            <AwaitingSubscription />
           ) : (
             (children || <Outlet />)
           )}

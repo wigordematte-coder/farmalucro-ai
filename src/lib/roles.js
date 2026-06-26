@@ -21,7 +21,7 @@ export const APP_ROLES = {
   },
   operator: {
     label: 'Operador',
-    description: 'Consulta de produtos, preços e promoções',
+    description: 'Consulta de produtos, preços, estoque e promoções',
     platformRole: 'user',
     color: 'bg-gray-100 text-gray-600',
   },
@@ -30,15 +30,16 @@ export const APP_ROLES = {
 export const CLIENT_NAV = [
   { label: 'Dashboard', path: '/', icon: 'LayoutDashboard', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
   { label: 'Produtos', path: '/produtos', icon: 'Package', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
-  { label: 'Importação', path: '/importacao', icon: 'FileUp', roles: ['pharmacy_admin'] },
-  { label: 'Curva ABC', path: '/curva-abc', icon: 'BarChart3', roles: ['pharmacy_admin', 'pharmacist'] },
-  { label: 'Consultor IA', path: '/consultor-ia', icon: 'Bot', roles: ['pharmacy_admin', 'pharmacist'] },
+  { label: 'Estoque', path: '/estoque', icon: 'Boxes', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
+  { label: 'Compras', path: '/compras', icon: 'ShoppingCart', roles: ['pharmacy_admin'] },
+  { label: 'Vendas', path: '/vendas', icon: 'TrendingUp', roles: ['pharmacy_admin', 'pharmacist'] },
+  { label: 'Precificação', path: '/precificacao', icon: 'DollarSign', roles: ['pharmacy_admin', 'pharmacist'] },
   { label: 'Promoções', path: '/promocoes', icon: 'Tag', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
-  { label: 'Marketing', path: '/marketing', icon: 'Megaphone', roles: ['pharmacy_admin'] },
+  { label: 'Consultor IA', path: '/consultor-ia', icon: 'Bot', roles: ['pharmacy_admin', 'pharmacist'] },
   { label: 'Relatórios', path: '/relatorios', icon: 'FileText', roles: ['pharmacy_admin', 'pharmacist'] },
-  { label: 'Funcionários', path: '/funcionarios', icon: 'Users', roles: ['pharmacy_admin'] },
   { label: 'Configurações', path: '/configuracoes', icon: 'Settings', roles: ['pharmacy_admin'] },
   { label: 'Assinatura', path: '/assinatura', icon: 'CreditCard', roles: ['pharmacy_admin'] },
+  { label: 'Perfil', path: '/perfil', icon: 'User', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
 ];
 
 export const SUPER_ADMIN_NAV = [
@@ -48,6 +49,7 @@ export const SUPER_ADMIN_NAV = [
   { label: 'Receita SaaS', path: '/admin/receita', icon: 'DollarSign' },
   { label: 'Config. Financeiras', path: '/admin/financeiro', icon: 'Wallet' },
   { label: 'Planos', path: '/admin/planos', icon: 'Layers' },
+  { label: 'Config. Globais', path: '/admin/configuracoes', icon: 'Settings' },
   { label: 'Usuários', path: '/admin/usuarios', icon: 'Users' },
   { label: 'Auditoria', path: '/admin/auditoria', icon: 'ScrollText' },
 ];

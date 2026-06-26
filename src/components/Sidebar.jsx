@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText,
   Settings, CreditCard, Users, Globe, Building2, DollarSign, Wallet, Layers,
-  ScrollText, X, ShieldCheck
+  ScrollText, X, ShieldCheck, Boxes, ShoppingCart, TrendingUp, User
 } from 'lucide-react';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { useSubscription, SUBSCRIPTION_STATUSES } from '@/lib/subscriptionContext';
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 const ICONS = {
   LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText,
   Settings, CreditCard, Users, Globe, Building2, DollarSign, Wallet, Layers, ScrollText,
+  Boxes, ShoppingCart, TrendingUp, User,
 };
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -43,7 +44,7 @@ export default function Sidebar({ isOpen, onClose }) {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white leading-tight">FarmaLucro</h1>
-              <p className="text-xs text-white/60">{isSuperAdmin ? 'Painel Admin SaaS' : 'AI Pricing'}</p>
+              <p className="text-xs text-white/60">{isSuperAdmin ? 'Painel do Desenvolvedor' : 'AI Pricing'}</p>
             </div>
           </div>
           <button onClick={onClose} className="lg:hidden text-white/70 hover:text-white">

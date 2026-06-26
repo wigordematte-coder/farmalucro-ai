@@ -1,0 +1,58 @@
+{
+  "name": "GlobalSettings",
+  "type": "object",
+  "properties": {
+    "system_name": {
+      "type": "string",
+      "title": "Nome do Sistema",
+      "default": "FarmaLucro AI"
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Logo (URL)"
+    },
+    "trial_duration_days": {
+      "type": "number",
+      "title": "Dura\u00e7\u00e3o do Per\u00edodo de Teste (dias)",
+      "default": 14
+    },
+    "default_plan_price": {
+      "type": "number",
+      "title": "Pre\u00e7o Padr\u00e3o da Assinatura (R$)",
+      "default": 197
+    },
+    "default_plan_name": {
+      "type": "string",
+      "title": "Nome do Plano Padr\u00e3o",
+      "default": "FarmaLucro AI Profissional"
+    },
+    "support_email": {
+      "type": "string",
+      "title": "E-mail de Suporte"
+    },
+    "login_welcome_text": {
+      "type": "string",
+      "title": "Texto de Boas-vindas do Login"
+    },
+    "registration_enabled": {
+      "type": "boolean",
+      "title": "Cadastros Abertos",
+      "default": true
+    },
+    "primary_color": {
+      "type": "string",
+      "title": "Cor Prim\u00e1ria (hex)"
+    },
+    "terms_url": {
+      "type": "string",
+      "title": "URL dos Termos de Uso"
+    },
+    "privacy_url": {
+      "type": "string",
+      "title": "URL da Pol\u00edtica de Privacidade"
+    }
+  },
+  "required": [
+    "system_name"
+  ]
+}
