@@ -1,64 +1,60 @@
 import { useMemo } from 'react';
-import { Package, DollarSign, TrendingUp, Tag, AlertTriangle, Sparkles, Percent, BarChart3 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-import KPICard from '@/components/KPICard';
-import InsightBanner from '@/components/InsightBanner';
-import EmptyState from '@/components/EmptyState';
-import { useProducts } from '@/hooks/useProducts';
-import { formatCurrency, formatNumber, formatPercent, calculatePotentialRevenue, calculatePotentialProfit, calculateInventoryValue } from '@/lib/pricing';
+import { FileUp, TrendingUp, Package, AlertTriangle, Tag, ArrowRight, Sparkles, DollarSign, Boxes } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useProducts } from '@/hooks/useProducts';
+import { formatCurrency, formatNumber, calculatePotentialProfit, calculateInventoryValue } from '@/lib/pricing';
+import { cn } from '@/lib/utils';
 
 export default function Home() {
   const { products, loading, settings } = useProducts();
 
-  const stats = useMemo(() => {
+  const opportunities = useMemo(() => {
     if (!products || products.length === 0) return null;
-    const totalRevenue = calculatePotentialRevenue(products);
-    const totalProfit = calculatePotentialProfit(products);
+
+    const potentialProfit = calculatePotentialProfit(products);
     const inventoryValue = calculateInventoryValue(products);
-    const avgMargin = products.reduce((s, p) => s + (p.margin_pct || 0), 0) / products.length;
-    const avgROI = products.reduce((s, p) => s + (p.roi || 0), 0) / products.length;
-    const onPromotion = products.filter(p => p.on_promotion).length;
-    const riskObsolescence = products.filter(p => p.risk_of_obsolescence || p.abc_class === 'C').length;
-    const highMargin = products.filter(p => p.high_margin || (p.margin_pct || 0) >= 35).length;
+
+    const deadStock = products
+      .filter(p => p.abc_class === 'C' || (p.monthly_sales || 0) === 0)
+      .reduce((s, p) => s + (p.cost || 0) * (p.quantity || 0), 0);
+
+    const lowMarginProducts = products.filter(p => {
+      const minMargin = settings?.min_margin || 15;
+      return (p.margin_pct || 0) < minMargin;
+    });
+
+    const promotionCandidates = products.filter(p => {
+      const isExpiring = p.expiration_date && (() => {
+        const days = (new Date(p.expiration_date) - new Date()) / (1000 * 60 * 60 * 24);
+        return days > 0 && days <= 90;
+      })();
+      const isDeadStock = (p.monthly_sales || 0) === 0 && (p.quantity || 0) > 0;
+      const isHighStock = (p.quantity || 0) > 10 && (p.monthly_sales || 0) < 5;
+      return isExpiring || isDeadStock || isHighStock;
+    });
+
+    const profitOpportunities = products.filter(p => {
+      const idealMargin = settings?.ideal_margin || 30;
+      return (p.margin_pct || 0) < idealMargin && (p.monthly_sales || 0) > 0;
+    }).reduce((s, p) => {
+      const idealPrice = (p.cost || 0) / (1 - (settings?.ideal_margin || 30) / 100);
+      const currentProfit = (p.selected_price || 0) - (p.cost || 0);
+      const idealProfit = idealPrice - (p.cost || 0);
+      return s + (idealProfit - currentProfit) * (p.monthly_sales || 0);
+    }, 0);
 
     return {
-      totalRevenue, totalProfit, inventoryValue, avgMargin, avgROI,
-      total: products.length, onPromotion, riskObsolescence, highMargin
+      potentialProfit,
+      inventoryValue,
+      deadStock,
+      lowMarginCount: lowMarginProducts.length,
+      promotionCount: promotionCandidates.length,
+      profitOpportunities,
+      totalProducts: products.length,
+      lowMarginProducts: lowMarginProducts.slice(0, 5),
+      promotionCandidates: promotionCandidates.slice(0, 5),
     };
-  }, [products]);
-
-  const chartData = useMemo(() => {
-    if (!products || products.length === 0) return null;
-
-    const abcData = [
-      { name: 'Curva A', value: products.filter(p => p.abc_class === 'A').length, fill: 'hsl(142 71% 45%)' },
-      { name: 'Curva B', value: products.filter(p => p.abc_class === 'B').length, fill: 'hsl(38 92% 50%)' },
-      { name: 'Curva C', value: products.filter(p => p.abc_class === 'C').length, fill: 'hsl(0 84% 60%)' },
-    ].filter(d => d.value > 0);
-
-    const marginData = [
-      { name: '< 15%', count: products.filter(p => (p.margin_pct || 0) < 15).length },
-      { name: '15-30%', count: products.filter(p => (p.margin_pct || 0) >= 15 && (p.margin_pct || 0) < 30).length },
-      { name: '30-45%', count: products.filter(p => (p.margin_pct || 0) >= 30 && (p.margin_pct || 0) < 45).length },
-      { name: '> 45%', count: products.filter(p => (p.margin_pct || 0) >= 45).length },
-    ];
-
-    const revenueData = products.slice(0, 8).map(p => ({
-      name: (p.name || '').substring(0, 12),
-      lucro: Number(((p.selected_price || 0) - (p.cost || 0)) * (p.quantity || 0)).toFixed(0),
-      custo: Number((p.cost || 0) * (p.quantity || 0)).toFixed(0),
-    }));
-
-    const turnoverData = [
-      { name: 'Sem 1', giro: 65 },
-      { name: 'Sem 2', giro: 72 },
-      { name: 'Sem 3', giro: 68 },
-      { name: 'Sem 4', giro: 80 },
-    ];
-
-    return { abcData, marginData, revenueData, turnoverData };
-  }, [products]);
+  }, [products, settings]);
 
   if (loading) {
     return (
@@ -68,132 +64,195 @@ export default function Home() {
     );
   }
 
-  if (!stats || products.length === 0) {
-    return (
-      <div className="space-y-6">
-        <InsightBanner products={products} settings={settings} />
-        <EmptyState
-          icon={Package}
-          title="Nenhum produto cadastrado"
-          description="Importe sua primeira nota fiscal para começar a receber insights de IA e recomendações de precificação."
-          action={
-            <Link to="/importacao" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-dark transition-colors">
-              Importar Nota Fiscal
-            </Link>
-          }
-        />
-      </div>
-    );
+  if (!opportunities || products.length === 0) {
+    return <EmptyEnvironment settings={settings} />;
   }
 
   return (
     <div className="space-y-6">
-      <InsightBanner products={products} settings={settings} />
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
-        <KPICard title="Faturamento Potencial" value={formatCurrency(stats.totalRevenue)} icon="DollarSign" color="primary" to="/produtos" />
-        <KPICard title="Lucro Potencial" value={formatCurrency(stats.totalProfit)} icon="TrendingUp" color="accent" trend={12.5} to="/produtos" />
-        <KPICard title="ROI Estimado" value={formatPercent(stats.avgROI)} icon="Percent" color="purple" />
-        <KPICard title="Produtos Cadastrados" value={formatNumber(stats.total)} icon="Package" color="blue" to="/produtos" />
-        <KPICard title="Em Promoção" value={formatNumber(stats.onPromotion)} icon="Tag" color="amber" to="/promocoes" />
-        <KPICard title="Risco de Encalhe" value={formatNumber(stats.riskObsolescence)} icon="AlertTriangle" color="red" to="/curva-abc" />
-        <KPICard title="Alta Margem" value={formatNumber(stats.highMargin)} icon="Sparkles" color="accent" to="/produtos" />
-        <KPICard title="Valor em Estoque" value={formatCurrency(stats.inventoryValue)} icon="BarChart3" color="primary" />
+      <div>
+        <h1 className="text-xl lg:text-2xl font-bold text-foreground">Centro de Oportunidades</h1>
+        <p className="text-sm text-muted-foreground mt-1">A IA encontrou oportunidades para aumentar seu lucro</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-        <ChartCard title="Rentabilidade por Produto" subtitle="Lucro vs Custo de estoque">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData.revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" height={60} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} />
-              <Bar dataKey="custo" fill="hsl(217 70% 30%)" radius={[6, 6, 0, 0]} name="Custo" />
-              <Bar dataKey="lucro" fill="hsl(142 71% 45%)" radius={[6, 6, 0, 0]} name="Lucro" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <OpportunityCard
+          icon={DollarSign}
+          title="Lucro potencial encontrado"
+          value={formatCurrency(opportunities.profitOpportunities)}
+          description="Ajustando preços de produtos com margem abaixo da meta"
+          color="accent"
+          to="/precificacao"
+          cta="Ver precificação"
+        />
+        <OpportunityCard
+          icon={Boxes}
+          title="Estoque parado"
+          value={formatCurrency(opportunities.deadStock)}
+          description="Capital imobilizado em produtos sem giro"
+          color="amber"
+          to="/produtos"
+          cta="Ver produtos"
+        />
+        <OpportunityCard
+          icon={Tag}
+          title="Promoções recomendadas"
+          value={`${opportunities.promotionCount} oportunidades`}
+          description="Produtos para promoção: vencimento próximo ou giro baixo"
+          color="primary"
+          to="/importacao"
+          cta="Ver detalhes"
+        />
+        <OpportunityCard
+          icon={TrendingUp}
+          title="Produtos com margem baixa"
+          value={`${opportunities.lowMarginCount} produtos`}
+          description="Abaixo da margem mínima configurada"
+          color="red"
+          to="/precificacao"
+          cta="Ajustar preços"
+        />
+      </div>
 
-        <ChartCard title="Giro de Estoque" subtitle="Evolução semanal (%)">
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={chartData.turnoverData}>
-              <defs>
-                <linearGradient id="turnoverGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="hsl(142 71% 45%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} />
-              <Area type="monotone" dataKey="giro" stroke="hsl(142 71% 45%)" strokeWidth={2} fill="url(#turnoverGrad)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      {opportunities.lowMarginProducts.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-foreground">Produtos com margem baixa</h3>
+            <Link to="/precificacao" className="text-xs text-primary hover:underline flex items-center gap-1">
+              Ver todos <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {opportunities.lowMarginProducts.map(p => (
+              <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">Custo: {formatCurrency(p.cost || 0)} → Preço: {formatCurrency(p.selected_price || 0)}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-red-600">{(p.margin_pct || 0).toFixed(1)}%</span>
+                  <p className="text-xs text-muted-foreground">Meta: {settings?.min_margin || 15}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-        <ChartCard title="Distribuição de Margem" subtitle="Quantidade de produtos por faixa">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData.marginData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} />
-              <Bar dataKey="count" radius={[6, 6, 0, 0]} name="Produtos">
-                {chartData.marginData.map((entry, i) => (
-                  <Cell key={i} fill={['hsl(0 84% 60%)', 'hsl(38 92% 50%)', 'hsl(217 70% 30%)', 'hsl(142 71% 45%)'][i]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+      {opportunities.promotionCandidates.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
+              <Tag className="w-5 h-5 text-primary" /> Promoções sugeridas pela IA
+            </h3>
+            <Link to="/consultor-ia" className="text-xs text-primary hover:underline flex items-center gap-1">
+              Consultar IA <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {opportunities.promotionCandidates.map(p => (
+              <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Package className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Estoque: {p.quantity || 0} | Vendas/mês: {p.monthly_sales || 0}
+                      {p.expiration_date && ` | Vence: ${new Date(p.expiration_date).toLocaleDateString('pt-BR')}`}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                  {p.abc_class === 'C' ? 'Sem giro' : (p.quantity > 10 ? 'Excesso' : 'Vencendo')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-        <ChartCard title="Classificação ABC" subtitle="Distribuição de produtos">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={chartData.abcData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4}>
-                {chartData.abcData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <PieLegend />
-        </ChartCard>
+      <div className="bg-gradient-to-r from-primary to-primary-light rounded-2xl p-5 text-primary-foreground">
+        <div className="flex items-center gap-3">
+          <Sparkles className="w-6 h-6" />
+          <div className="flex-1">
+            <p className="font-semibold">Consultor FarmaLucro AI</p>
+            <p className="text-sm text-primary-foreground/80">Receba recomendações personalizadas com justificativa baseada nos seus dados</p>
+          </div>
+          <Link to="/consultor-ia" className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-sm font-medium transition-colors whitespace-nowrap">
+            Conversar com IA
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
 
-function PieLegend() {
+function OpportunityCard({ icon: Icon, title, value, description, color, to, cta }) {
+  const colors = {
+    accent: 'bg-accent/10 text-accent-dark',
+    primary: 'bg-primary/10 text-primary',
+    amber: 'bg-amber-50 text-amber-600',
+    red: 'bg-red-50 text-red-600',
+  };
   return (
-    <div className="flex items-center justify-center gap-4 mt-2 flex-wrap">
-      <LegendItem color="hsl(142 71% 45%)" label="Curva A — Alta venda" />
-      <LegendItem color="hsl(38 92% 50%)" label="Curva B — Venda média" />
-      <LegendItem color="hsl(0 84% 60%)" label="Curva C — Baixa venda" />
-    </div>
-  );
-}
-
-function LegendItem({ color, label }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="w-3 h-3 rounded-full" style={{ background: color }} />
-      <span className="text-xs text-muted-foreground">{label}</span>
-    </div>
-  );
-}
-
-function ChartCard({ title, subtitle, children }) {
-  return (
-    <div className="bg-card border border-border rounded-2xl p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold text-foreground">{title}</h3>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
+      <div className="flex items-start justify-between mb-3">
+        <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center", colors[color])}>
+          <Icon className="w-6 h-6" />
+        </div>
       </div>
-      {children}
+      <p className="text-xs text-muted-foreground">{title}</p>
+      <p className="text-2xl font-bold text-foreground mt-0.5">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1 flex-1">{description}</p>
+      <Link to={to} className="mt-3 text-xs font-medium text-primary hover:underline flex items-center gap-1">
+        {cta} <ArrowRight className="w-3 h-3" />
+      </Link>
+    </div>
+  );
+}
+
+function EmptyEnvironment({ settings }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[70vh] text-center max-w-lg mx-auto">
+      <div className="w-20 h-20 rounded-3xl gradient-farma flex items-center justify-center mb-6">
+        <Sparkles className="w-10 h-10 text-white" />
+      </div>
+      <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
+        Bem-vindo ao FarmaLucro AI{settings?.name ? `, ${settings.name}` : ''}
+      </h1>
+      <p className="text-muted-foreground mb-8">
+        Seu ambiente foi criado com sucesso. Para começar a receber insights de IA e recomendações de precificação, importe sua primeira nota fiscal.
+      </p>
+      <Link
+        to="/importacao"
+        className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-accent text-accent-foreground font-semibold text-sm hover:bg-accent-dark transition-colors shadow-lg shadow-accent/20"
+      >
+        <FileUp className="w-5 h-5" /> Importar Nota Fiscal
+      </Link>
+      <div className="mt-8 grid grid-cols-3 gap-4 w-full max-w-md">
+        <Step icon={FileUp} label="Importe" description="Sua nota fiscal" />
+        <Step icon={Sparkles} label="IA analisa" description="Preços e oportunidades" />
+        <Step icon={TrendingUp} label="Lucre mais" description="Com precificação inteligente" />
+      </div>
+    </div>
+  );
+}
+
+function Step({ icon: Icon, label, description }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+        <Icon className="w-5 h-5 text-muted-foreground" />
+      </div>
+      <p className="text-xs font-medium text-foreground">{label}</p>
+      <p className="text-[10px] text-muted-foreground">{description}</p>
     </div>
   );
 }

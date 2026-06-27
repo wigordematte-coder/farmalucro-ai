@@ -15,43 +15,38 @@ export const APP_ROLES = {
   },
   pharmacist: {
     label: 'Farmacêutico',
-    description: 'Acesso a IA, preços, promoções, estoque e relatórios',
+    description: 'Acesso a IA, preços, produtos e relatórios',
     platformRole: 'user',
     color: 'bg-accent/10 text-accent-dark',
   },
   operator: {
     label: 'Operador',
-    description: 'Consulta de produtos, preços, estoque e promoções',
+    description: 'Consulta de produtos, preços e relatórios',
     platformRole: 'user',
     color: 'bg-gray-100 text-gray-600',
   },
 };
 
 export const CLIENT_NAV = [
-  { label: 'Dashboard', path: '/', icon: 'LayoutDashboard', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
+  { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
+  { label: 'Importar Nota Fiscal', path: '/importacao', icon: 'FileUp', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
   { label: 'Produtos', path: '/produtos', icon: 'Package', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
-  { label: 'Estoque', path: '/estoque', icon: 'Boxes', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
-  { label: 'Compras', path: '/compras', icon: 'ShoppingCart', roles: ['pharmacy_admin'] },
-  { label: 'Vendas', path: '/vendas', icon: 'TrendingUp', roles: ['pharmacy_admin', 'pharmacist'] },
   { label: 'Precificação', path: '/precificacao', icon: 'DollarSign', roles: ['pharmacy_admin', 'pharmacist'] },
-  { label: 'Promoções', path: '/promocoes', icon: 'Tag', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
-  { label: 'Consultor IA', path: '/consultor-ia', icon: 'Bot', roles: ['pharmacy_admin', 'pharmacist'] },
+  { label: 'Consultor FarmaLucro AI', path: '/consultor-ia', icon: 'Bot', roles: ['pharmacy_admin', 'pharmacist'] },
   { label: 'Relatórios', path: '/relatorios', icon: 'FileText', roles: ['pharmacy_admin', 'pharmacist'] },
+  { label: 'Minha Assinatura', path: '/assinatura', icon: 'CreditCard', roles: ['pharmacy_admin'] },
   { label: 'Configurações', path: '/configuracoes', icon: 'Settings', roles: ['pharmacy_admin'] },
-  { label: 'Assinatura', path: '/assinatura', icon: 'CreditCard', roles: ['pharmacy_admin'] },
-  { label: 'Perfil', path: '/perfil', icon: 'User', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
 ];
 
 export const SUPER_ADMIN_NAV = [
   { label: 'Dashboard Global', path: '/admin', icon: 'Globe' },
-  { label: 'Farmácias', path: '/admin/farmacias', icon: 'Building2' },
+  { label: 'Clientes', path: '/admin/clientes', icon: 'Building2' },
   { label: 'Assinaturas', path: '/admin/assinaturas', icon: 'CreditCard' },
-  { label: 'Receita SaaS', path: '/admin/receita', icon: 'DollarSign' },
-  { label: 'Config. Financeiras', path: '/admin/financeiro', icon: 'Wallet' },
-  { label: 'Planos', path: '/admin/planos', icon: 'Layers' },
-  { label: 'Config. Globais', path: '/admin/configuracoes', icon: 'Settings' },
-  { label: 'Usuários', path: '/admin/usuarios', icon: 'Users' },
-  { label: 'Auditoria', path: '/admin/auditoria', icon: 'ScrollText' },
+  { label: 'Cobranças', path: '/admin/cobrancas', icon: 'Wallet' },
+  { label: 'Receita', path: '/admin/receita', icon: 'DollarSign' },
+  { label: 'Logs', path: '/admin/logs', icon: 'ScrollText' },
+  { label: 'Configurações', path: '/admin/configuracoes', icon: 'Settings' },
+  { label: 'Suporte', path: '/admin/suporte', icon: 'Users' },
 ];
 
 export function getNavForRole(appRole) {

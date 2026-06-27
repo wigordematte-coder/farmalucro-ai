@@ -44,7 +44,7 @@ export default function Sidebar({ isOpen, onClose }) {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white leading-tight">FarmaLucro</h1>
-              <p className="text-xs text-white/60">{isSuperAdmin ? 'Painel do Desenvolvedor' : 'AI Pricing'}</p>
+              <p className="text-xs text-white/60">{isSuperAdmin ? 'Painel do Desenvolvedor' : 'Centro de Oportunidades'}</p>
             </div>
           </div>
           <button onClick={onClose} className="lg:hidden text-white/70 hover:text-white">
@@ -87,7 +87,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <NavLink
                 key={item.path}
                 to={item.path}
-                end={item.path === '/' || item.path === '/admin'}
+                end={item.path === '/dashboard' || item.path === '/admin'}
                 onClick={onClose}
                 className={({ isActive }) => cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",

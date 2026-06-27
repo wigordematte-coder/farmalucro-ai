@@ -216,7 +216,7 @@ export default function Register() {
           tenant_id: tenant.id, tenant_name: company.razao_social,
         });
 
-        window.location.href = "/";
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       setError(err.message || "Código de verificação inválido.");

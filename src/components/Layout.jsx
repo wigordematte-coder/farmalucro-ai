@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Menu, Bell, ShieldCheck, Lock } from 'lucide-react';
+import { Outlet, useLocation, Link } from 'react-router-dom';
+import { Menu, Bell, ShieldCheck, Lock, User } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import TrialBanner from '@/components/TrialBanner';
@@ -78,12 +78,12 @@ export default function Layout({ children }) {
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
                 </button>
               )}
-              <div className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm",
+              <Link to="/perfil" className={cn(
+                "w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm hover:opacity-90 transition-opacity",
                 isSuperAdmin ? "bg-purple-600" : "gradient-accent"
               )}>
                 {isSuperAdmin ? <ShieldCheck className="w-5 h-5" /> : (settings?.name?.[0] || 'F').toUpperCase()}
-              </div>
+              </Link>
             </div>
           </div>
         </header>

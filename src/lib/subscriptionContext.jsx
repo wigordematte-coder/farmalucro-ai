@@ -35,7 +35,6 @@ export const RESTRICTED_ROUTES = [
   '/consultor-ia',
   '/relatorios',
   '/precificacao',
-  '/promocoes',
 ];
 
 export function getTrialDaysRemaining(trialEndDate) {
