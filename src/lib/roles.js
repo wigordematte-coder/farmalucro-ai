@@ -45,8 +45,8 @@ export const SUPER_ADMIN_NAV = [
   { label: 'Cobranças', path: '/admin/cobrancas', icon: 'Wallet' },
   { label: 'Receita', path: '/admin/receita', icon: 'DollarSign' },
   { label: 'Logs', path: '/admin/logs', icon: 'ScrollText' },
-  { label: 'Configurações', path: '/admin/configuracoes', icon: 'Settings' },
   { label: 'Suporte', path: '/admin/suporte', icon: 'Users' },
+  { label: 'Configurações Globais', path: '/admin/configuracoes', icon: 'Settings' },
 ];
 
 export function getNavForRole(appRole) {

@@ -54,10 +54,10 @@ export default function Landing() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link to="/register" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-accent text-accent-foreground font-semibold text-sm hover:bg-accent-dark transition-colors shadow-lg shadow-accent/20">
-                <FileUp className="w-5 h-5" /> Começar teste grátis
+                <FileUp className="w-5 h-5" /> Teste Grátis por 14 Dias
               </Link>
-              <a href="#como-funciona" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-border bg-card text-foreground font-medium text-sm hover:bg-muted transition-colors">
-                Ver como funciona <ArrowRight className="w-4 h-4" />
+              <a href="mailto:contato@farmalucro.com.br?subject=Agendar Demonstração" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-border bg-card text-foreground font-medium text-sm hover:bg-muted transition-colors">
+                <Clock className="w-4 h-4" /> Agendar Demonstração
               </a>
             </div>
             <p className="text-xs text-muted-foreground mt-3">14 dias grátis · Sem cartão de crédito · Cancele quando quiser</p>
@@ -165,7 +165,7 @@ export default function Landing() {
               14 dias de acesso total. Importe sua primeira nota fiscal e descubra quanto lucro você está deixando na mesa.
             </p>
             <Link to="/register" className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-white text-primary font-semibold text-sm hover:bg-white/90 transition-colors">
-              <FileUp className="w-5 h-5" /> Criar conta grátis
+              <FileUp className="w-5 h-5" /> Teste Grátis por 14 Dias
             </Link>
           </div>
         </div>

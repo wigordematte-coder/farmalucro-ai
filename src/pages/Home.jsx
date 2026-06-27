@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { FileUp, TrendingUp, Package, AlertTriangle, Tag, ArrowRight, Sparkles, DollarSign, Boxes } from 'lucide-react';
+import { FileUp, TrendingUp, Package, AlertTriangle, Tag, ArrowRight, Sparkles, DollarSign, Boxes, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import { formatCurrency, formatNumber, calculatePotentialProfit, calculateInventoryValue } from '@/lib/pricing';
@@ -43,6 +43,38 @@ export default function Home() {
       return s + (idealProfit - currentProfit) * (p.monthly_sales || 0);
     }, 0);
 
+    const priorityActions = [];
+    products
+      .filter(p => (p.margin_pct || 0) < (settings?.min_margin || 15) && (p.monthly_sales || 0) > 5)
+      .slice(0, 2)
+      .forEach(p => priorityActions.push({
+        action: `Reajustar preço de ${p.name}`,
+        reason: `Margem ${(p.margin_pct || 0).toFixed(1)}% abaixo do mínimo com alto giro`,
+        to: '/precificacao',
+      }));
+    products
+      .filter(p => p.expiration_date && (() => {
+        const days = (new Date(p.expiration_date) - new Date()) / (1000 * 60 * 60 * 24);
+        return days > 0 && days <= 90;
+      })())
+      .slice(0, 2)
+      .forEach(p => {
+        const daysLeft = Math.ceil((new Date(p.expiration_date) - new Date()) / (1000 * 60 * 60 * 24));
+        priorityActions.push({
+          action: `Criar promoção para ${p.name}`,
+          reason: `Vence em ${daysLeft} dias`,
+          to: '/importacao',
+        });
+      });
+    products
+      .filter(p => (p.abc_class === 'C' || (p.monthly_sales || 0) === 0) && (p.quantity || 0) > 0)
+      .slice(0, 2)
+      .forEach(p => priorityActions.push({
+        action: `Liquidar estoque de ${p.name}`,
+        reason: `${p.quantity} unidades paradas sem giro`,
+        to: '/produtos',
+      }));
+
     return {
       potentialProfit,
       inventoryValue,
@@ -53,6 +85,7 @@ export default function Home() {
       totalProducts: products.length,
       lowMarginProducts: lowMarginProducts.slice(0, 5),
       promotionCandidates: promotionCandidates.slice(0, 5),
+      priorityActions: priorityActions.slice(0, 5),
     };
   }, [products, settings]);
 
@@ -113,6 +146,28 @@ export default function Home() {
           cta="Ajustar preços"
         />
       </div>
+
+      {opportunities.priorityActions?.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-amber-500" /> Ações Prioritárias do Dia
+          </h3>
+          <div className="space-y-2">
+            {opportunities.priorityActions.map((action, i) => (
+              <Link key={i} to={action.to} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center flex-shrink-0">
+                  {i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground text-sm">{action.action}</p>
+                  <p className="text-xs text-muted-foreground">{action.reason}</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {opportunities.lowMarginProducts.length > 0 && (
         <div className="bg-card border border-border rounded-2xl p-5">

@@ -71,7 +71,7 @@ export default function Precificacao() {
         icon={DollarSign}
         title="Nenhum produto para precificar"
         description="Importe produtos para definir preços e otimizar margens de lucro."
-        action={<Link to="/compras" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-dark transition-colors">Importar Produtos</Link>}
+        action={<Link to="/importacao" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-dark transition-colors">Importar Nota Fiscal</Link>}
       />
     );
   }
@@ -118,7 +118,9 @@ export default function Precificacao() {
                 <th className="px-4 py-3 font-medium text-muted-foreground text-right">Preço Equilibrado</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground text-right">Preço Premium</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground text-right">Preço Atual</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground text-right">Lucro Estimado</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground text-center">Margem</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground">Justificativa</th>
               </tr>
             </thead>
             <tbody>
@@ -140,6 +142,9 @@ export default function Precificacao() {
                         className="w-24 px-2 py-1 rounded border border-border text-right text-sm bg-background" />
                     )}
                   </td>
+                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">
+                    {formatCurrency((p.unit_profit || 0) * (p.quantity || 0))}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <span className={cn("inline-block px-2 py-0.5 rounded-full text-xs font-medium",
                       (p.margin_pct || 0) >= 35 ? "bg-accent/10 text-accent-dark" :
@@ -147,6 +152,18 @@ export default function Precificacao() {
                       "bg-red-50 text-red-600")}>
                       {formatPercent(p.margin_pct || 0)}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {(() => {
+                      const margin = p.margin_pct || 0;
+                      const minMargin = settings?.min_margin || 15;
+                      const idealMargin = settings?.ideal_margin || 30;
+                      const sales = p.monthly_sales || 0;
+                      if (margin < minMargin && sales > 5) return <span className="text-red-600 font-medium">⚡ Priorize reajuste — alto giro com margem baixa</span>;
+                      if (margin < minMargin) return <span className="text-red-600">Margem abaixo do mínimo</span>;
+                      if (margin < idealMargin) return <span className="text-amber-600">Abaixo da margem ideal</span>;
+                      return <span className="text-accent-dark">Preço bem posicionado</span>;
+                    })()}
                   </td>
                 </tr>
               ))}
