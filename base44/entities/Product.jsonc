@@ -10,13 +10,17 @@
       "type": "string",
       "title": "Fabricante"
     },
+    "supplier": {
+      "type": "string",
+      "title": "Fornecedor"
+    },
     "category": {
       "type": "string",
       "title": "Categoria"
     },
     "barcode": {
       "type": "string",
-      "title": "C\u00f3digo de Barras"
+      "title": "C\u00f3digo de Barras (EAN)"
     },
     "cost": {
       "type": "number",
@@ -68,6 +72,11 @@
       "type": "string",
       "format": "date",
       "title": "Data de Validade"
+    },
+    "last_purchase_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data da \u00daltima Compra"
     },
     "invoice_id": {
       "type": "string",

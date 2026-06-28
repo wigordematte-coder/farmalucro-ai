@@ -1,34 +1,71 @@
 import { useMemo, useState } from 'react';
-import { DollarSign, Percent, TrendingUp, Save, Loader2, CheckCircle2 } from 'lucide-react';
+import { DollarSign, AlertTriangle, Star, TrendingUp, Search } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
+import { useCategoryMargins } from '@/hooks/useCategoryMargins';
 import EmptyState from '@/components/EmptyState';
 import KPICard from '@/components/KPICard';
-import { formatCurrency, formatPercent } from '@/lib/pricing';
+import PricingTable from '@/components/pricing/PricingTable';
+import PricingSimulator from '@/components/pricing/PricingSimulator';
+import CategoryMarginsConfig from '@/components/pricing/CategoryMarginsConfig';
+import { formatCurrency, getPricingRecommendation, getCategoryMargin, detectPricingProblems } from '@/lib/pricing';
 import { base44 } from '@/api/base44Client';
-import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 
 export default function Precificacao() {
   const { products, loading, settings, reloadProducts } = useProducts();
+  const { margins, loading: marginsLoading, updateMargin, createMargin, deleteMargin } = useCategoryMargins();
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(null);
   const [saved, setSaved] = useState(null);
+  const [simulatorProduct, setSimulatorProduct] = useState(null);
 
   const filtered = useMemo(() => {
     if (!products) return [];
     if (!search) return products;
     const q = search.toLowerCase();
-    return products.filter(p => (p.name || '').toLowerCase().includes(q));
+    return products.filter(p => (p.name || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
   }, [products, search]);
 
   const stats = useMemo(() => {
     if (!products || products.length === 0) return null;
-    const avgMargin = products.reduce((s, p) => s + (p.margin_pct || 0), 0) / products.length;
-    const avgROI = products.reduce((s, p) => s + (p.roi || 0), 0) / products.length;
-    const totalProfit = products.reduce((s, p) => s + (p.unit_profit || 0) * (p.quantity || 0), 0);
-    const highMarginCount = products.filter(p => (p.margin_pct || 0) >= 35).length;
-    return { avgMargin, avgROI, totalProfit, highMarginCount, total: products.length };
-  }, [products]);
+
+    const minMargin = settings?.min_margin || 15;
+    const lowMarginCount = products.filter(p => (p.margin_pct || 0) < minMargin).length;
+
+    const reajusteProducts = products.filter(p => {
+      const rec = getPricingRecommendation(p, settings, margins);
+      return rec.potentialMonthlyGain > 0;
+    });
+
+    const totalPotentialGain = products.reduce((s, p) => {
+      const rec = getPricingRecommendation(p, settings, margins);
+      return s + rec.potentialMonthlyGain;
+    }, 0);
+
+    const catStats = {};
+    products.forEach(p => {
+      const cat = p.category || 'Sem categoria';
+      if (!catStats[cat]) catStats[cat] = { profit: 0, count: 0 };
+      catStats[cat].profit += (p.unit_profit || 0) * (p.monthly_sales || 0);
+      catStats[cat].count++;
+    });
+    const topCategories = Object.entries(catStats).filter(([, d]) => d.profit > 0).sort((a, b) => b[1].profit - a[1].profit);
+
+    const outOfTargetCount = products.filter(p => {
+      const catMargin = getCategoryMargin(p.category, margins, settings);
+      return (p.margin_pct || 0) < catMargin;
+    }).length;
+
+    return {
+      lowMarginCount,
+      reajusteCount: reajusteProducts.length,
+      totalPotentialGain,
+      topCategory: topCategories[0]?.[0] || '—',
+      topCategories,
+      outOfTargetCount,
+      total: products.length,
+    };
+  }, [products, settings, margins]);
 
   const handlePriceChange = async (product, field, value) => {
     setSaving(product.id);
@@ -57,6 +94,10 @@ export default function Precificacao() {
     }
   };
 
+  const handleSimulatorSave = async (product, newPrice) => {
+    await handlePriceChange(product, 'selected_price', newPrice);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -79,98 +120,66 @@ export default function Precificacao() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl lg:text-2xl font-bold text-foreground">Precificação</h1>
-        <p className="text-sm text-muted-foreground">Ajuste preços e monitore margens de lucro</p>
+        <h1 className="text-xl lg:text-2xl font-bold text-foreground">Precificação Inteligente</h1>
+        <p className="text-sm text-muted-foreground">Defina preços estratégicos e maximize o lucro</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
-        <KPICard title="Margem Média" value={formatPercent(stats.avgMargin)} icon="Percent" color="accent" />
-        <KPICard title="ROI Médio" value={formatPercent(stats.avgROI)} icon="TrendingUp" color="primary" />
-        <KPICard title="Lucro Potencial" value={formatCurrency(stats.totalProfit)} icon="DollarSign" color="accent" />
-        <KPICard title="Alta Margem" value={stats.highMarginCount} icon="CheckCircle2" color="blue" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+        <KPICard title="Margem Baixa" value={stats.lowMarginCount} subtitle="produtos" icon={AlertTriangle} color="red" />
+        <KPICard title="Potencial de Reajuste" value={stats.reajusteCount} subtitle="produtos" icon={TrendingUp} color="blue" />
+        <KPICard title="Ganho Potencial" value={formatCurrency(stats.totalPotentialGain)} subtitle="por mês" icon={DollarSign} color="accent" />
+        <KPICard title="Fora da Meta" value={stats.outOfTargetCount} subtitle="produtos" icon={AlertTriangle} color="amber" />
+        <KPICard title="Top Categoria" value={stats.topCategory} subtitle="mais rentável" icon={Star} color="purple" />
       </div>
 
-      {settings && (
-        <div className="bg-card border border-border rounded-2xl p-4">
-          <div className="flex items-center gap-4 flex-wrap text-sm">
-            <span className="text-muted-foreground font-medium">Margens configuradas:</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-500" /> Mínima: {settings.min_margin}%</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-accent" /> Ideal: {settings.ideal_margin}%</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-purple-500" /> Máxima: {settings.max_margin}%</span>
-            <Link to="/configuracoes" className="text-xs text-primary hover:underline ml-auto">Ajustar margens</Link>
+      <CategoryMarginsConfig margins={margins} onUpdate={updateMargin} onCreate={createMargin} onDelete={deleteMargin} />
+
+      {stats.topCategories.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Star className="w-5 h-5 text-accent-dark" /> Categorias Mais Rentáveis
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {stats.topCategories.slice(0, 6).map(([cat, data]) => (
+              <div key={cat} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div>
+                  <p className="font-medium text-foreground text-sm">{cat}</p>
+                  <p className="text-xs text-muted-foreground">{data.count} produtos</p>
+                </div>
+                <span className="font-semibold text-accent-dark text-sm">{formatCurrency(data.profit)}/mês</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
-          <h3 className="font-semibold text-foreground">Preços dos Produtos</h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold text-foreground">Produtos</h3>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto..."
-            className="px-3 py-1.5 rounded-lg border border-border text-sm bg-background w-48" />
-        </div>
-        <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr className="text-left">
-                <th className="px-4 py-3 font-medium text-muted-foreground">Produto</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground text-right">Custo</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground text-right">Preço Agressivo</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground text-right">Preço Equilibrado</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground text-right">Preço Premium</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground text-right">Preço Atual</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground text-right">Lucro Estimado</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground text-center">Margem</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Justificativa</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.slice(0, 100).map(p => (
-                <tr key={p.id} className="border-t border-border hover:bg-muted/20">
-                  <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">{p.name}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">{formatCurrency(p.cost || 0)}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground text-xs">{formatCurrency(p.price_aggressive || 0)}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground text-xs">{formatCurrency(p.price_balanced || 0)}</td>
-                  <td className="px-4 py-3 text-right text-muted-foreground text-xs">{formatCurrency(p.price_premium || 0)}</td>
-                  <td className="px-4 py-3 text-right">
-                    {saving === p.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground inline" />
-                    ) : saved === p.id ? (
-                      <CheckCircle2 className="w-4 h-4 text-accent inline" />
-                    ) : (
-                      <input type="number" step="0.01" defaultValue={p.selected_price || 0}
-                        onBlur={e => e.target.value != p.selected_price && handlePriceChange(p, 'selected_price', e.target.value)}
-                        className="w-24 px-2 py-1 rounded border border-border text-right text-sm bg-background" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">
-                    {formatCurrency((p.unit_profit || 0) * (p.quantity || 0))}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={cn("inline-block px-2 py-0.5 rounded-full text-xs font-medium",
-                      (p.margin_pct || 0) >= 35 ? "bg-accent/10 text-accent-dark" :
-                      (p.margin_pct || 0) >= 15 ? "bg-blue-50 text-blue-600" :
-                      "bg-red-50 text-red-600")}>
-                      {formatPercent(p.margin_pct || 0)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    {(() => {
-                      const margin = p.margin_pct || 0;
-                      const minMargin = settings?.min_margin || 15;
-                      const idealMargin = settings?.ideal_margin || 30;
-                      const sales = p.monthly_sales || 0;
-                      if (margin < minMargin && sales > 5) return <span className="text-red-600 font-medium">⚡ Priorize reajuste — alto giro com margem baixa</span>;
-                      if (margin < minMargin) return <span className="text-red-600">Margem abaixo do mínimo</span>;
-                      if (margin < idealMargin) return <span className="text-amber-600">Abaixo da margem ideal</span>;
-                      return <span className="text-accent-dark">Preço bem posicionado</span>;
-                    })()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            className="pl-9 pr-3 py-1.5 rounded-lg border border-border text-sm bg-background w-48" />
         </div>
       </div>
+
+      <PricingTable
+        products={filtered.slice(0, 100)}
+        settings={settings}
+        margins={margins}
+        onSimulate={setSimulatorProduct}
+        onPriceChange={handlePriceChange}
+        saving={saving}
+        saved={saved}
+      />
+
+      <PricingSimulator
+        product={simulatorProduct}
+        open={!!simulatorProduct}
+        onClose={() => setSimulatorProduct(null)}
+        onSave={handleSimulatorSave}
+        settings={settings}
+        margins={margins}
+      />
     </div>
   );
 }

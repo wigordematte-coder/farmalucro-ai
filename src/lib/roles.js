@@ -31,7 +31,7 @@ export const CLIENT_NAV = [
   { label: 'Centro de Oportunidades', path: '/dashboard', icon: 'LayoutDashboard', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
   { label: 'Importar Nota Fiscal', path: '/importacao', icon: 'FileUp', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
   { label: 'Produtos', path: '/produtos', icon: 'Package', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
-  { label: 'Precificação', path: '/precificacao', icon: 'DollarSign', roles: ['pharmacy_admin', 'pharmacist'] },
+  { label: 'Precificação Inteligente', path: '/precificacao', icon: 'DollarSign', roles: ['pharmacy_admin', 'pharmacist'] },
   { label: 'Consultor FarmaLucro AI', path: '/consultor-ia', icon: 'Bot', roles: ['pharmacy_admin', 'pharmacist'] },
   { label: 'Relatórios', path: '/relatorios', icon: 'FileText', roles: ['pharmacy_admin', 'pharmacist'] },
   { label: 'Minha Assinatura', path: '/assinatura', icon: 'CreditCard', roles: ['pharmacy_admin'] },

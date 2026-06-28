@@ -115,3 +115,105 @@ export function formatPercent(value) {
 function round2(value) {
   return Math.round(value * 100) / 100;
 }
+
+// ===== PRECIFICAÇÃO INTELIGENTE =====
+
+export function getCategoryMargin(category, categoryMargins, settings) {
+  if (!category) return settings?.ideal_margin || 30;
+  const match = categoryMargins?.find(m => m.category?.toLowerCase() === category.toLowerCase() && m.is_active !== false);
+  return match?.margin_pct || settings?.ideal_margin || 30;
+}
+
+export function calculateCategoryPrices(cost, categoryMargin) {
+  if (!cost || cost <= 0) return { aggressive: 0, balanced: 0, premium: 0 };
+  const aggressiveMargin = Math.max(10, categoryMargin - 10);
+  const premiumMargin = categoryMargin + 10;
+  return {
+    aggressive: round2(cost / (1 - aggressiveMargin / 100)),
+    balanced: round2(cost / (1 - categoryMargin / 100)),
+    premium: round2(cost / (1 - premiumMargin / 100)),
+  };
+}
+
+export function detectPricingProblems(product, settings, categoryMargins) {
+  const problems = [];
+  const margin = product.margin_pct || 0;
+  const categoryMargin = getCategoryMargin(product.category, categoryMargins, settings);
+  const minMargin = settings?.min_margin || 15;
+  const currentPrice = product.selected_price || 0;
+  const cost = product.cost || 0;
+
+  if (margin < minMargin) {
+    problems.push({ type: 'margem_baixa', label: 'Margem Baixa', severity: 'high', description: `Margem atual ${margin.toFixed(1)}% abaixo do mínimo de ${minMargin}%` });
+  }
+
+  const premiumPrice = cost > 0 ? cost / (1 - (categoryMargin + 15) / 100) : 0;
+  if (currentPrice > premiumPrice && cost > 0) {
+    problems.push({ type: 'preco_alto', label: 'Preço Muito Alto', severity: 'medium', description: `Preço ${formatCurrency(currentPrice)} acima do premium recomendado ${formatCurrency(premiumPrice)}` });
+  }
+
+  const lastUpdate = product.last_purchase_date || product.updated_date;
+  if (lastUpdate) {
+    const daysSince = Math.floor((new Date() - new Date(lastUpdate)) / (1000 * 60 * 60 * 24));
+    if (daysSince > 90) {
+      problems.push({ type: 'sem_atualizacao', label: 'Preço Sem Atualização', severity: 'medium', description: `Sem revisão há ${daysSince} dias` });
+    }
+  }
+
+  return problems;
+}
+
+export function getPricingRecommendation(product, settings, categoryMargins) {
+  const margin = product.margin_pct || 0;
+  const categoryMargin = getCategoryMargin(product.category, categoryMargins, settings);
+  const minMargin = settings?.min_margin || 15;
+  const sales = product.monthly_sales || 0;
+  const stock = product.quantity || 0;
+  const abcClass = product.abc_class;
+
+  let strategy = 'balanced';
+  let reason = '';
+
+  if (margin < minMargin) {
+    strategy = 'balanced';
+    reason = `Preço equilibrado sugerido porque a margem atual (${margin.toFixed(1)}%) está abaixo da meta da categoria (${categoryMargin}%).`;
+  } else if (abcClass === 'A' && sales > 10) {
+    strategy = 'aggressive';
+    reason = `Preço agressivo recomendado devido ao alto giro (${sales} vendas/mês) e classificação A. Produtos de alta rotatividade aceitam margens menores.`;
+  } else if (stock > 10 && sales < 5) {
+    strategy = 'aggressive';
+    reason = `Preço agressivo recomendado devido ao alto estoque (${stock} un.) e baixa saída (${sales} vendas/mês).`;
+  } else if (margin >= categoryMargin && abcClass !== 'A') {
+    strategy = 'premium';
+    reason = `Preço premium recomendado pois a categoria tem baixa sensibilidade a preço e o produto já possui boa margem.`;
+  } else {
+    strategy = 'balanced';
+    reason = `Preço equilibrado mantém a margem da categoria (${categoryMargin}%) com boa competitividade.`;
+  }
+
+  const prices = calculateCategoryPrices(product.cost || 0, categoryMargin);
+  const recommendedPrice = strategy === 'aggressive' ? prices.aggressive : strategy === 'premium' ? prices.premium : prices.balanced;
+  const potentialMonthlyGain = Math.max(0, (recommendedPrice - (product.selected_price || 0)) * Math.max(sales, 1));
+
+  return { strategy, reason, recommendedPrice, potentialMonthlyGain, categoryMargin, prices };
+}
+
+export function simulatePriceChange(newPrice, product) {
+  const cost = product.cost || 0;
+  const currentPrice = product.selected_price || 0;
+  const unitProfit = newPrice - cost;
+  const marginPct = newPrice > 0 ? ((newPrice - cost) / newPrice) * 100 : 0;
+  const roi = cost > 0 ? (unitProfit / cost) * 100 : 0;
+  const monthlySales = product.monthly_sales || 0;
+  const monthlyProfit = unitProfit * monthlySales;
+  const currentMonthlyProfit = (currentPrice - cost) * monthlySales;
+  const difference = monthlyProfit - currentMonthlyProfit;
+
+  return {
+    unitProfit: round2(unitProfit),
+    marginPct: round2(marginPct),
+    roi: round2(roi),
+    monthlyProfit: round2(monthlyProfit),
+    difference: round2(difference),
+  };
+}
