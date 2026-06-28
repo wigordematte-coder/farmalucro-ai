@@ -63,7 +63,7 @@ export default function Home() {
         priorityActions.push({
           action: `Criar promoção para ${p.name}`,
           reason: `Vence em ${daysLeft} dias`,
-          to: '/importacao',
+          to: '/consultor-ia',
         });
       });
     products

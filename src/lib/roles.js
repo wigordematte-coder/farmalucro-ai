@@ -28,7 +28,7 @@ export const APP_ROLES = {
 };
 
 export const CLIENT_NAV = [
-  { label: 'Dashboard', path: '/dashboard', icon: 'LayoutDashboard', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
+  { label: 'Centro de Oportunidades', path: '/dashboard', icon: 'LayoutDashboard', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
   { label: 'Importar Nota Fiscal', path: '/importacao', icon: 'FileUp', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
   { label: 'Produtos', path: '/produtos', icon: 'Package', roles: ['pharmacy_admin', 'pharmacist', 'operator'] },
   { label: 'Precificação', path: '/precificacao', icon: 'DollarSign', roles: ['pharmacy_admin', 'pharmacist'] },
