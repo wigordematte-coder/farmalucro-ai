@@ -1,0 +1,68 @@
+{
+  "name": "Oportunidade",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "margem_baixa",
+        "estoque_parado",
+        "promocao_recomendada",
+        "reposicao_inteligente",
+        "categoria_alto_potencial"
+      ],
+      "title": "Tipo de Oportunidade"
+    },
+    "product_name": {
+      "type": "string",
+      "title": "Produto"
+    },
+    "category": {
+      "type": "string",
+      "title": "Categoria"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descri\u00e7\u00e3o"
+    },
+    "financial_impact_monthly": {
+      "type": "number",
+      "title": "Ganho Potencial Mensal (R$)",
+      "default": 0
+    },
+    "financial_impact_annual": {
+      "type": "number",
+      "title": "Ganho Potencial Anual (R$)",
+      "default": 0
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "alta",
+        "media",
+        "baixa"
+      ],
+      "title": "N\u00edvel de Prioridade",
+      "default": "media"
+    },
+    "confidence": {
+      "type": "number",
+      "title": "Confian\u00e7a da Recomenda\u00e7\u00e3o (%)",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "aberta",
+        "aplicada",
+        "ignorada"
+      ],
+      "title": "Status",
+      "default": "aberta"
+    }
+  },
+  "required": [
+    "type",
+    "description"
+  ]
+}

@@ -3,22 +3,24 @@ import { Send, Sparkles, Bot, MessageSquare, Plus, Trash2, FileText, Loader2 } f
 import { base44 } from '@/api/base44Client';
 import MessageBubble from '@/components/MessageBubble';
 import { useProducts } from '@/hooks/useProducts';
+import { useOpportunities } from '@/hooks/useOpportunities';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { formatCurrency, calculatePotentialProfit, calculateInventoryValue, isExpiringSoon } from '@/lib/pricing';
 import { PHARMACY_BENCHMARKS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 const SUGGESTED_QUESTIONS = [
-  'Qual preço devo aplicar?',
-  'Qual produto promover hoje?',
-  'Quais produtos possuem maior lucro?',
-  'Quais possuem risco de encalhe?',
-  'Quais produtos utilizar como isca?',
+  'Quais produtos devo promover?',
+  'Onde estou perdendo margem?',
+  'Quais produtos devo aumentar preço?',
+  'Qual categoria gera mais lucro?',
+  'Quais produtos possuem baixo giro?',
 ];
 
 export default function AIAssistant() {
   const { products } = useProducts();
   const { settings } = usePharmacy();
+  const { opportunities, stats: oppStats } = useOpportunities(products, settings);
   const [conversations, setConversations] = useState([]);
   const [currentConvId, setCurrentConvId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -100,9 +102,20 @@ ${highMargin.map(p => `- ${p.name} | Margem: ${(p.margin_pct || 0).toFixed(1)}% 
 PRODUTOS PRÓXIMOS DO VENCIMENTO:
 ${expiring.map(p => `- ${p.name} | Validade: ${p.expiration_date}`).join('\n') || 'Nenhum'}
 
+OPORTUNIDADES IDENTIFICADAS PELO MOTOR DE INTELIGÊNCIA (${opportunities.length} total):
+- Lucro potencial mensal: ${formatCurrency(oppStats?.totalMonthly || 0)}
+- Lucro potencial anual: ${formatCurrency(oppStats?.totalAnnual || 0)}
+- Margem baixa: ${oppStats?.byType?.margem_baixa || 0} oportunidades
+- Estoque parado: ${oppStats?.byType?.estoque_parado || 0} oportunidades
+- Promoções recomendadas: ${oppStats?.byType?.promocao_recomendada || 0} oportunidades
+- Reposição inteligente: ${oppStats?.byType?.reposicao_inteligente || 0} oportunidades
+
+TOP OPORTUNIDADES (prioridade alta):
+${opportunities.filter(o => o.priority === 'alta').slice(0, 10).map(o => `- [${o.type}] ${o.product_name}: ${o.description} (Impacto: ${formatCurrency(o.financial_impact_monthly)}/mês, Confiança: ${o.confidence}%)`).join('\n') || 'Nenhuma'}
+
 BENCHMARKS DO SETOR FARMACÊUTICO:
 ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) => `- ${cat}: margem típica ${data.typical_margin}%, markup ${data.typical_markup}%, giro ${data.turnover_days} dias`).join('\n')}`;
-  }, [products, settings]);
+  }, [products, settings, opportunities, oppStats]);
 
   const handleSend = async (text) => {
     const question = text || input;
