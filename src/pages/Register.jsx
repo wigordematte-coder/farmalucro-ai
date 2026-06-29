@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { UserPlus, Building2, Lock, Loader2, ArrowLeft, ArrowRight, Check, ShieldCheck, Search, AlertCircle } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
+import PasswordInput from "@/components/PasswordInput";
 import { formatCNPJ, cleanCNPJ, validateCNPJ, validatePassword, getPasswordStrength } from "@/lib/auth-helpers";
 import { useGlobalSettings } from "@/lib/globalSettingsContext";
 import { SUBSCRIPTION_PLAN } from "@/lib/subscriptionContext";
@@ -288,12 +289,10 @@ export default function Register() {
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input id="password" type="password" autoComplete="new-password" autoFocus placeholder="••••••••"
-                value={password} onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
-                className="pl-10 h-12" required />
-            </div>
+            <PasswordInput id="password" value={password}
+              onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
+              autoComplete="new-password" autoFocus />
+
             {password && (
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -307,12 +306,10 @@ export default function Register() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm">Confirmar Senha</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input id="confirm" type="password" autoComplete="new-password" placeholder="••••••••"
-                value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className="pl-10 h-12" required />
-            </div>
+            <PasswordInput id="confirm" value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password" />
+
           </div>
 
           <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs text-muted-foreground">

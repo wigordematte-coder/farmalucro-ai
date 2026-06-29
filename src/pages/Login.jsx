@@ -4,8 +4,9 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Building2, Lock, Loader2, ArrowRight, ArrowLeft, ShieldCheck } from "lucide-react";
+import { LogIn, Building2, Loader2, ArrowRight, ArrowLeft, ShieldCheck } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import PasswordInput from "@/components/PasswordInput";
 import { formatCNPJ, cleanCNPJ, validateCNPJ, maskEmail } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 
@@ -149,19 +150,17 @@ export default function Login() {
 
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                autoFocus
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 h-12"
-                required
-              />
+            <PasswordInput
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              autoFocus
+            />
+            <div className="text-right">
+              <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                Esqueceu a senha?
+              </Link>
             </div>
           </div>
           <Button type="submit" className="w-full h-12 font-medium" disabled={loading || !password}>
@@ -181,11 +180,6 @@ export default function Login() {
           >
             <ArrowLeft className="w-3 h-3" /> Voltar
           </button>
-          <div className="text-center">
-            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-              Esqueceu a senha?
-            </Link>
-          </div>
         </form>
       )}
 

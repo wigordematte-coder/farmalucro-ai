@@ -1,19 +1,44 @@
-import { useState, useCallback } from 'react';
-import { Upload, FileText, Image as ImageIcon, FileCode, CheckCircle2, Loader2, AlertCircle, Save, Package } from 'lucide-react';
+import { useState, useCallback, useRef } from 'react';
+import { Upload, FileText, FileCode, CheckCircle2, Loader2, AlertCircle, Save, Package, Camera, RotateCcw, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import EmptyState from '@/components/EmptyState';
 import { formatCurrency } from '@/lib/pricing';
 import { useProducts } from '@/hooks/useProducts';
+import { cn } from '@/lib/utils';
+
+const ACCEPTED_TYPES = '.xml,.pdf,.jpg,.jpeg,.png,.heic,image/*,application/pdf,text/xml,application/xml';
+const ACCEPTED_EXTENSIONS = ['xml', 'pdf', 'jpg', 'jpeg', 'png', 'heic'];
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+const STAGE_LABELS = {
+  uploading: 'Enviando nota fiscal…',
+  extracting: 'Analisando informações da nota…',
+  generating: 'Gerando oportunidades de lucro…',
+};
+
+function getErrorMessage(err) {
+  const msg = err?.message || '';
+  if (msg.includes('format') || msg.includes('tipo de arquivo')) {
+    return 'Este tipo de arquivo ainda não é aceito. Envie XML, PDF, JPG, PNG ou HEIC.';
+  }
+  if (msg.includes('size') || msg.includes('tamanho') || msg.includes('grande')) {
+    return 'O arquivo é muito grande. Tente enviar uma imagem menor ou um PDF otimizado.';
+  }
+  if (msg.includes('network') || msg.includes('conexão') || msg.includes('fetch')) {
+    return 'Não conseguimos enviar o arquivo. Verifique sua conexão e tente novamente.';
+  }
+  return 'Não conseguimos processar a nota fiscal. Tente novamente com outro arquivo.';
+}
 
 export default function Import() {
   const { settings, reloadProducts } = useProducts();
-  const [uploading, setUploading] = useState(false);
-  const [extracting, setExtracting] = useState(false);
+  const [stage, setStage] = useState(null); // null | 'uploading' | 'extracting' | 'generating'
   const [extractedItems, setExtractedItems] = useState([]);
   const [invoice, setInvoice] = useState(null);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const fileInputRefs = useRef({});
 
   const handleFile = useCallback(async (file) => {
     setError('');
@@ -23,17 +48,23 @@ export default function Import() {
 
     if (!file) return;
 
-    const isXML = file.name.toLowerCase().endsWith('.xml');
-    const isPDF = file.name.toLowerCase().endsWith('.pdf');
-    const isImage = file.type.startsWith('image/');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const isXML = ext === 'xml' || file.type === 'text/xml' || file.type === 'application/xml';
+    const isPDF = ext === 'pdf' || file.type === 'application/pdf';
+    const isImage = file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'heic'].includes(ext);
 
     if (!isXML && !isPDF && !isImage) {
-      setError('Formato não suportado. Envie XML, PDF ou imagem da nota fiscal.');
+      setError('Este tipo de arquivo ainda não é aceito. Envie XML, PDF, JPG, PNG ou HEIC.');
+      return;
+    }
+
+    if (file.size > MAX_SIZE) {
+      setError('O arquivo é muito grande. Tente enviar uma imagem menor ou um PDF otimizado.');
       return;
     }
 
     try {
-      setUploading(true);
+      setStage('uploading');
       const uploadRes = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadRes.file_url;
       const fileType = isXML ? 'xml' : isPDF ? 'pdf' : 'image';
@@ -45,27 +76,31 @@ export default function Import() {
         status: 'pending',
       });
       setInvoice(invoiceRecord);
-      setUploading(false);
+      setStage('extracting');
 
-      setExtracting(true);
       let items = [];
-
       if (isXML) {
         items = await parseXmlNF(file);
       } else {
         items = await extractWithAI(fileUrl, fileType);
       }
 
-      setExtractedItems(items);
+      if (!items || items.length === 0) {
+        throw new Error('Não foi possível extrair produtos da nota fiscal');
+      }
+
+      setStage('generating');
       await base44.entities.Invoice.update(invoiceRecord.id, {
         status: 'processed',
         extracted_count: items.length,
       });
+
+      setExtractedItems(items);
+      setStage(null);
     } catch (e) {
-      setError('Erro ao processar arquivo. Verifique o formato e tente novamente.');
+      setError(getErrorMessage(e));
     } finally {
-      setUploading(false);
-      setExtracting(false);
+      setStage(null);
     }
   }, []);
 
@@ -102,6 +137,7 @@ export default function Import() {
           monthly_sales: 0,
           high_margin: marginPct >= 35,
           risk_of_obsolescence: true,
+          last_purchase_date: new Date().toISOString().split('T')[0],
         };
       });
 
@@ -110,8 +146,8 @@ export default function Import() {
         await base44.entities.Invoice.update(invoice.id, { status: 'processed', extracted_count: records.length });
         reloadProducts();
       }
-    } catch (e) {
-      setError('Erro ao salvar produtos. Tente novamente.');
+    } catch {
+      setError('Não conseguimos salvar os produtos. Verifique sua conexão e tente novamente.');
       setSaved(false);
     }
   };
@@ -121,24 +157,42 @@ export default function Import() {
     setInvoice(null);
     setError('');
     setSaved(false);
+    setStage(null);
   };
+
+  const triggerInput = (key) => fileInputRefs.current[key]?.click();
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl lg:text-2xl font-bold text-foreground">Importação de Nota Fiscal</h1>
-        <p className="text-sm text-muted-foreground">Envie XML da NF-e, PDF ou foto da nota. A IA extrai produtos automaticamente.</p>
+        <h1 className="text-xl lg:text-2xl font-bold text-foreground">Importar Nota Fiscal</h1>
+        <p className="text-sm text-muted-foreground">Envie a nota fiscal para a IA extrair produtos e gerar oportunidades de lucro.</p>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          {error}
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p>{error}</p>
+            <button onClick={reset} className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:underline">
+              <RotateCcw className="w-3 h-3" /> Tentar novamente
+            </button>
+          </div>
         </div>
       )}
 
-      {!extractedItems.length && !saved && (
-        <UploadZone onFile={handleFile} uploading={uploading} extracting={extracting} />
+      {stage && !error && (
+        <div className="flex flex-col items-center gap-4 py-12">
+          <Loader2 className="w-12 h-12 text-accent animate-spin" />
+          <div className="text-center">
+            <p className="font-semibold text-foreground">{STAGE_LABELS[stage]}</p>
+            <p className="text-xs text-muted-foreground mt-1">Isso pode levar alguns segundos</p>
+          </div>
+        </div>
+      )}
+
+      {!stage && !extractedItems.length && !saved && !error && (
+        <UploadOptions onFile={handleFile} fileInputRefs={fileInputRefs} triggerInput={triggerInput} />
       )}
 
       {extractedItems.length > 0 && !saved && (
@@ -153,11 +207,10 @@ export default function Import() {
 
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead className="bg-muted/50">
                   <tr className="text-left">
                     <th className="px-4 py-3 font-medium text-muted-foreground">Produto</th>
-                    <th className="px-4 py-3 font-medium text-muted-foreground">Fabricante</th>
                     <th className="px-4 py-3 font-medium text-muted-foreground">Categoria</th>
                     <th className="px-4 py-3 font-medium text-muted-foreground text-center">Qtd</th>
                     <th className="px-4 py-3 font-medium text-muted-foreground text-right">Custo</th>
@@ -170,8 +223,7 @@ export default function Import() {
                     const suggestedPrice = cost / (1 - (settings?.ideal_margin || 30) / 100);
                     return (
                       <tr key={i} className="border-t border-border">
-                        <td className="px-4 py-3 font-medium">{item.name || '—'}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{item.manufacturer || '—'}</td>
+                        <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">{item.name || '—'}</td>
                         <td className="px-4 py-3 text-muted-foreground">{item.category || '—'}</td>
                         <td className="px-4 py-3 text-center">{item.quantity || 1}</td>
                         <td className="px-4 py-3 text-right">{formatCurrency(cost)}</td>
@@ -186,9 +238,9 @@ export default function Import() {
 
           <button
             onClick={handleSave}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-accent text-accent-foreground font-medium hover:bg-accent-dark transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-accent text-accent-foreground font-semibold hover:bg-accent-dark transition-colors shadow-lg shadow-accent/20"
           >
-            <Save className="w-4 h-4" /> Salvar {extractedItems.length} Produtos
+            <Save className="w-5 h-5" /> Salvar {extractedItems.length} Produtos
           </button>
         </div>
       )}
@@ -196,69 +248,98 @@ export default function Import() {
       {saved && (
         <EmptyState
           icon={CheckCircle2}
-          title="Produtos salvos com sucesso!"
-          description={`${extractedItems.length} produtos foram cadastrados com precificação automática. Você pode ajustá-los na página de Produtos.`}
-          action={<Link to="/produtos" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-dark"><Package className="w-4 h-4" /> Ver Produtos</Link>}
+          title="Nota importada com sucesso!"
+          description={`${extractedItems.length} produtos foram cadastrados com precificação automática. A IA já está gerando oportunidades de lucro.`}
+          action={
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Link to="/dashboard" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-dark">
+                <Sparkles className="w-4 h-4" /> Ver Oportunidades
+              </Link>
+              <Link to="/produtos" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-foreground font-medium text-sm hover:bg-muted">
+                <Package className="w-4 h-4" /> Ver Produtos
+              </Link>
+            </div>
+          }
         />
       )}
     </div>
   );
 }
 
-function UploadZone({ onFile, uploading, extracting }) {
-  return (
-    <div>
-      <label className="block">
-        <div className="border-2 border-dashed border-border rounded-2xl p-8 lg:p-12 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-all">
-          {uploading || extracting ? (
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-12 h-12 text-accent animate-spin" />
-              <p className="font-medium text-foreground">{uploading ? 'Enviando arquivo...' : 'Extraindo dados com IA...'}</p>
-              <p className="text-xs text-muted-foreground">{extracting && 'Isso pode levar alguns segundos'}</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-center gap-3 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center"><FileCode className="w-7 h-7 text-blue-500" /></div>
-                <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center"><FileText className="w-7 h-7 text-red-500" /></div>
-                <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center"><ImageIcon className="w-7 h-7 text-purple-500" /></div>
-              </div>
-              <p className="font-semibold text-foreground mb-1">Arraste ou clique para enviar</p>
-              <p className="text-sm text-muted-foreground">XML da NF-e, PDF ou foto da nota fiscal</p>
-              <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-accent-foreground font-medium text-sm">
-                <Upload className="w-4 h-4" /> Selecionar Arquivo
-              </div>
-            </>
-          )}
-        </div>
-        <input
-          type="file"
-          accept=".xml,.pdf,image/*"
-          className="hidden"
-          onChange={e => e.target.files[0] && onFile(e.target.files[0])}
-          disabled={uploading || extracting}
-        />
-      </label>
+function UploadOptions({ onFile, fileInputRefs, triggerInput }) {
+  const options = [
+    {
+      key: 'xml',
+      icon: FileCode,
+      title: 'Importar XML',
+      desc: 'Melhor opção. Mais rápido e preciso.',
+      color: 'blue',
+      accept: '.xml,text/xml,application/xml',
+    },
+    {
+      key: 'pdf',
+      icon: FileText,
+      title: 'Enviar PDF da nota',
+      desc: 'Use quando tiver a nota em PDF.',
+      color: 'red',
+      accept: '.pdf,application/pdf',
+    },
+    {
+      key: 'photo',
+      icon: Camera,
+      title: 'Tirar ou enviar foto',
+      desc: 'Use a câmera do celular ou selecione uma imagem da galeria.',
+      color: 'purple',
+      accept: 'image/*,.jpg,.jpeg,.png,.heic,capture=camera',
+    },
+  ];
 
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <InfoCard icon={FileCode} title="XML da NF-e" desc="Extração 100% automática dos dados oficiais" color="blue" />
-        <InfoCard icon={FileText} title="PDF da Nota" desc="OCR extrai produtos do PDF da nota fiscal" color="red" />
-        <InfoCard icon={ImageIcon} title="Foto da Nota" desc="Tire foto da nota e a IA lê os produtos" color="purple" />
-      </div>
-    </div>
-  );
-}
+  const colors = {
+    blue: 'bg-blue-50 text-blue-500 hover:border-blue-300',
+    red: 'bg-red-50 text-red-500 hover:border-red-300',
+    purple: 'bg-purple-50 text-purple-500 hover:border-purple-300',
+  };
 
-function InfoCard({ icon: Icon, title, desc, color }) {
-  const colors = { blue: 'bg-blue-50 text-blue-500', red: 'bg-red-50 text-red-500', purple: 'bg-purple-50 text-purple-500' };
   return (
-    <div className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${colors[color]}`}>
-        <Icon className="w-5 h-5" />
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3">
+        {options.map(opt => {
+          const Icon = opt.icon;
+          return (
+            <button
+              key={opt.key}
+              onClick={() => triggerInput(opt.key)}
+              className={cn(
+                "flex items-center gap-4 p-4 rounded-2xl border-2 border-border bg-card text-left transition-all active:scale-[0.99] hover:shadow-md",
+                colors[opt.color]
+              )}
+            >
+              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", colors[opt.color])}>
+                <Icon className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-foreground">{opt.title}</p>
+                <p className="text-xs text-muted-foreground">{opt.desc}</p>
+              </div>
+              <Upload className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+              <input
+                ref={el => { fileInputRefs.current[opt.key] = el; }}
+                type="file"
+                accept={opt.accept}
+                className="hidden"
+                onChange={e => e.target.files[0] && onFile(e.target.files[0])}
+              />
+            </button>
+          );
+        })}
       </div>
-      <div>
-        <p className="font-semibold text-sm text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">{desc}</p>
+
+      <div className="flex flex-wrap justify-center gap-2 pt-2">
+        {ACCEPTED_EXTENSIONS.map(ext => (
+          <span key={ext} className="px-2.5 py-1 rounded-full bg-muted text-xs text-muted-foreground font-medium uppercase">
+            {ext}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -275,12 +356,11 @@ async function parseXmlNF(file) {
     const name = prod.querySelector('xProd')?.textContent || '';
     const quantity = parseFloat(prod.querySelector('qCom')?.textContent || '1');
     const cost = parseFloat(prod.querySelector('vUnCom')?.textContent || '0');
-    const manufacturer = '';
-    items.push({ name, quantity, cost, manufacturer, category: '' });
+    items.push({ name, quantity, cost, manufacturer: '', category: '' });
   });
 
   if (items.length === 0) {
-    throw new Error('XML não contém produtos');
+    throw new Error('Não foi possível extrair produtos da nota fiscal');
   }
   return items;
 }
@@ -311,5 +391,5 @@ async function extractWithAI(fileUrl, fileType) {
   if (result?.status === 'success' && result?.output?.items) {
     return result.output.items;
   }
-  throw new Error('Não foi possível extrair dados da nota fiscal');
+  throw new Error('Não foi possível extrair produtos da nota fiscal');
 }
