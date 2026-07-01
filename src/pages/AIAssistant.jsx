@@ -10,11 +10,12 @@ import { PHARMACY_BENCHMARKS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 const SUGGESTED_QUESTIONS = [
-  'Quais produtos devo promover?',
-  'Onde estou perdendo margem?',
-  'Quais produtos devo aumentar preço?',
-  'Qual categoria gera mais lucro?',
-  'Quais produtos possuem baixo giro?',
+  'O que está reduzindo meu lucro hoje?',
+  'Quais produtos devo promover agora?',
+  'Onde posso aumentar preços sem perder clientes?',
+  'Quais produtos comprar novamente com urgência?',
+  'Qual categoria gera mais resultado para mim?',
+  'Como reduzir meu estoque parado?',
 ];
 
 export default function AIAssistant() {

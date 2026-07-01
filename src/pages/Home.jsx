@@ -1,9 +1,14 @@
-import { FileUp, TrendingUp, Tag, ArrowRight, Sparkles, DollarSign, Boxes, Zap, RefreshCw, Star } from 'lucide-react';
+import { FileUp, TrendingUp, Tag, Sparkles, DollarSign, Boxes, RefreshCw, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
+import DailySummary from '@/components/dashboard/DailySummary';
+import PriorityActions from '@/components/dashboard/PriorityActions';
+import SmartAlerts from '@/components/dashboard/SmartAlerts';
+import FarmaScore from '@/components/dashboard/FarmaScore';
+import CEOMode from '@/components/dashboard/CEOMode';
 import OpportunitySection from '@/components/OpportunitySection';
 
 export default function Home() {
@@ -18,57 +23,47 @@ export default function Home() {
     );
   }
 
-  if (!opportunities || opportunities.length === 0) {
+  if (!products || products.length === 0) {
     return <EmptyEnvironment settings={settings} />;
   }
 
-  const byType = stats.byType;
   const opps = (type) => opportunities.filter(o => o.type === type);
   const priorityActions = opportunities.filter(o => o.priority === 'alta').slice(0, 5);
+  const byType = stats?.byType || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className="text-xl lg:text-2xl font-bold text-foreground">Centro de Oportunidades</h1>
-        <p className="text-sm text-muted-foreground mt-1">A IA encontrou {opportunities.length} oportunidades para aumentar seu lucro</p>
+        <p className="text-sm text-muted-foreground mt-1">Seu consultor comercial identificou {opportunities.length} oportunidades para aumentar seu lucro.</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-        <OpportunityCard icon={DollarSign} title="Lucro Potencial Identificado" value={formatCurrency(stats.totalMonthly)} subtitle={`${formatCurrency(stats.totalAnnual)}/ano`} color="accent" to="/precificacao" />
-        <OpportunityCard icon={TrendingUp} title="Margem Baixa" value={`${byType.margem_baixa || 0} produtos`} subtitle="Abaixo da meta configurada" color="red" to="/precificacao" />
-        <OpportunityCard icon={Boxes} title="Estoque Parado" value={`${byType.estoque_parado || 0} produtos`} subtitle="Capital imobilizado sem giro" color="amber" to="/produtos" />
-        <OpportunityCard icon={Tag} title="Promoções Recomendadas" value={`${byType.promocao_recomendada || 0} oportunidades`} subtitle="Acelerar saída de estoque" color="primary" to="/consultor-ia" />
-        <OpportunityCard icon={RefreshCw} title="Reposição Inteligente" value={`${byType.reposicao_inteligente || 0} alertas`} subtitle="Estoque baixo com demanda" color="blue" to="/produtos" />
-        <OpportunityCard icon={Star} title="Categorias de Alto Potencial" value={`${topCategories.length} categorias`} subtitle="Foco comercial recomendado" color="accent" to="/relatorios" />
+      {/* Resumo diário + FarmaScore lado a lado em desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DailySummary stats={stats} settings={settings} />
+        <FarmaScore products={products} opportunities={opportunities} settings={settings} />
       </div>
 
-      {priorityActions.length > 0 && (
-        <div className="bg-card border border-border rounded-2xl p-5">
-          <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-amber-500" /> Ações Prioritárias do Dia
-          </h3>
-          <div className="space-y-2">
-            {priorityActions.map((action, i) => (
-              <Link key={i} to={getActionRoute(action.type)} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center flex-shrink-0">
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground text-sm">{action.product_name}</p>
-                  <p className="text-xs text-muted-foreground">{action.description}</p>
-                </div>
-                {action.financial_impact_monthly > 0 && (
-                  <span className="text-xs font-semibold text-accent-dark whitespace-nowrap">
-                    +{formatCurrency(action.financial_impact_monthly)}/mês
-                  </span>
-                )}
-                <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <OpportunityCard icon={DollarSign} title="Lucro Potencial" value={formatCurrency(stats?.totalMonthly || 0)} subtitle={`${formatCurrency(stats?.totalAnnual || 0)}/ano`} color="accent" to="/precificacao" />
+        <OpportunityCard icon={TrendingUp} title="Margem Baixa" value={`${byType.margem_baixa || 0} produtos`} subtitle="Abaixo da meta" color="red" to="/precificacao" />
+        <OpportunityCard icon={Boxes} title="Estoque Parado" value={`${byType.estoque_parado || 0} produtos`} subtitle="Capital imobilizado" color="amber" to="/produtos" />
+        <OpportunityCard icon={Tag} title="Promoções" value={`${byType.promocao_recomendada || 0} sugeridas`} subtitle="Acelerar saída" color="primary" to="/consultor-ia" />
+        <OpportunityCard icon={RefreshCw} title="Risco de Ruptura" value={`${byType.reposicao_inteligente || 0} alertas`} subtitle="Repor urgente" color="blue" to="/produtos" />
+        <OpportunityCard icon={Star} title="Categorias Top" value={`${topCategories.length} categorias`} subtitle="Foco recomendado" color="accent" to="/relatorios" />
+      </div>
 
+      {/* Ações Prioritárias */}
+      <PriorityActions actions={priorityActions} />
+
+      {/* Alertas inteligentes */}
+      <SmartAlerts opportunities={opportunities} />
+
+      {/* Modo CEO */}
+      <CEOMode stats={stats} opportunities={opportunities} products={products} />
+
+      {/* Seções detalhadas */}
       <OpportunitySection title="Produtos com Margem Baixa" icon={TrendingUp} iconColor="text-red-500" opportunities={opps('margem_baixa')} to="/precificacao" cta="Ajustar preços" />
       <OpportunitySection title="Reposição Inteligente" icon={RefreshCw} iconColor="text-blue-500" opportunities={opps('reposicao_inteligente')} to="/produtos" cta="Ver produtos" />
       <OpportunitySection title="Promoções Recomendadas" icon={Tag} iconColor="text-primary" opportunities={opps('promocao_recomendada')} to="/consultor-ia" cta="Consultar IA" />
@@ -82,9 +77,7 @@ export default function Home() {
           <div className="space-y-2">
             {topCategories.map((cat, i) => (
               <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent-dark font-bold text-sm flex-shrink-0">
-                  {i + 1}
-                </span>
+                <span className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent-dark font-bold text-sm flex-shrink-0">{i + 1}</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground text-sm">{cat.category}</p>
                   <p className="text-xs text-muted-foreground">{cat.description}</p>
@@ -99,31 +92,21 @@ export default function Home() {
         </div>
       )}
 
+      {/* CTA Consultor */}
       <div className="bg-gradient-to-r from-primary to-primary-light rounded-2xl p-5 text-primary-foreground">
         <div className="flex items-center gap-3">
           <Sparkles className="w-6 h-6" />
           <div className="flex-1">
             <p className="font-semibold">Consultor FarmaLucro AI</p>
-            <p className="text-sm text-primary-foreground/80">Receba recomendações personalizadas com justificativa baseada nos seus dados</p>
+            <p className="text-sm text-primary-foreground/80">Faça perguntas específicas sobre sua farmácia e receba recomendações detalhadas com justificativa.</p>
           </div>
           <Link to="/consultor-ia" className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-sm font-medium transition-colors whitespace-nowrap">
-            Conversar com IA
+            Consultar IA
           </Link>
         </div>
       </div>
     </div>
   );
-}
-
-function getActionRoute(type) {
-  const routes = {
-    margem_baixa: '/precificacao',
-    estoque_parado: '/produtos',
-    promocao_recomendada: '/consultor-ia',
-    reposicao_inteligente: '/produtos',
-    categoria_alto_potencial: '/relatorios',
-  };
-  return routes[type] || '/dashboard';
 }
 
 function OpportunityCard({ icon: Icon, title, value, subtitle, color, to }) {
@@ -156,7 +139,7 @@ function EmptyEnvironment({ settings }) {
         Bem-vindo ao FarmaLucro AI{settings?.name ? `, ${settings.name}` : ''}
       </h1>
       <p className="text-muted-foreground mb-8">
-        Seu ambiente foi criado com sucesso. Para começar a receber insights de IA e recomendações de precificação, importe sua primeira nota fiscal.
+        Seu ambiente foi criado com sucesso. Importe sua primeira nota fiscal para ativar o Consultor Proativo e receber recomendações personalizadas.
       </p>
       <Link
         to="/importacao"
