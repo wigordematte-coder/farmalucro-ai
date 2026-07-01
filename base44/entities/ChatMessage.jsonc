@@ -2,6 +2,10 @@
   "name": "ChatMessage",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "conversation_id": {
       "type": "string",
       "title": "ID da Conversa"

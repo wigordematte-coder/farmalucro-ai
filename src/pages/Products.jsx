@@ -6,10 +6,11 @@ import ABCBadge from '@/components/ABCBadge';
 import EmptyState from '@/components/EmptyState';
 import { useProducts } from '@/hooks/useProducts';
 import { calculateProductMetrics, formatCurrency, formatPercent, isExpiringSoon } from '@/lib/pricing';
+import { withTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 export default function Products() {
-  const { products, loading, reloadProducts, settings } = useProducts();
+  const { products, loading, reloadProducts, settings, tenantId } = useProducts();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
@@ -36,7 +37,7 @@ export default function Products() {
       if (editingProduct?.id) {
         await base44.entities.Product.update(editingProduct.id, data);
       } else {
-        await base44.entities.Product.create(data);
+        await base44.entities.Product.create(withTenantId(data, tenantId));
       }
       setShowForm(false);
       setEditingProduct(null);

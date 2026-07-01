@@ -4,6 +4,8 @@ import { base44 } from '@/api/base44Client';
 import EmptyState from '@/components/EmptyState';
 import { useProducts } from '@/hooks/useProducts';
 import { formatCurrency } from '@/lib/pricing';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, withTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const CHANNELS = [
@@ -14,6 +16,7 @@ const CHANNELS = [
 
 export default function Marketing() {
   const { products, loading } = useProducts();
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [channel, setChannel] = useState('instagram');
   const [generated, setGenerated] = useState(null);
@@ -23,14 +26,15 @@ export default function Marketing() {
 
   const loadHistory = async () => {
     try {
+      if (roleLoading) return;
       const list = await base44.entities.MarketingContent.list('-created_date', 10);
-      setHistory(list || []);
+      setHistory(isSuperAdmin ? (list || []) : filterByTenant(list, tenantId));
     } catch (e) {}
   };
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   const handleGenerate = async () => {
     if (!selectedProduct) return;
@@ -67,14 +71,14 @@ Retorne em JSON com os campos: title, caption, hashtags, cta.`;
 
       setGenerated(result);
 
-      await base44.entities.MarketingContent.create({
+      await base44.entities.MarketingContent.create(withTenantId({
         channel,
         product_name: selectedProduct.name,
         title: result.title || '',
         caption: result.caption || '',
         hashtags: result.hashtags || '',
         cta: result.cta || '',
-      });
+      }, tenantId));
       loadHistory();
     } catch (e) {
       setGenerated({

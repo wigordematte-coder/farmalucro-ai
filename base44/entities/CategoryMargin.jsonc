@@ -2,6 +2,10 @@
   "name": "CategoryMargin",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "category": {
       "type": "string",
       "title": "Categoria"

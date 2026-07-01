@@ -1,24 +1,28 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, FileUp, FileText, Image as ImageIcon, FileCode, CheckCircle2, Loader2, AlertCircle, Link as LinkIcon } from 'lucide-react';
+import { ShoppingCart, FileUp, FileText, Image as ImageIcon, FileCode, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import EmptyState from '@/components/EmptyState';
 import { formatCurrency } from '@/lib/pricing';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant } from '@/lib/tenant';
 
 export default function Compras() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
 
   useEffect(() => {
     const loadInvoices = async () => {
       try {
+        if (roleLoading) return;
         const list = await base44.entities.Invoice.list('-created_date', 50);
-        setInvoices(list || []);
+        setInvoices(isSuperAdmin ? (list || []) : filterByTenant(list, tenantId));
       } catch { setInvoices([]); }
       finally { setLoading(false); }
     };
     loadInvoices();
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   if (loading) {
     return (

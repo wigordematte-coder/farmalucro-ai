@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 export async function logAudit(action, description, options = {}) {
   try {
     const user = await base44.auth.me();
-    const appRole = user?.app_role || (user?.role === 'admin' ? 'super_admin' : 'operator');
+    const appRole = user?.app_role || 'operator';
     const tenantId = user?.tenant_id || options.tenant_id || '';
     const tenantName = options.tenant_name || '';
 

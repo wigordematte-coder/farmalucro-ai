@@ -200,6 +200,7 @@ export default function Register() {
 
         // Create trial subscription
         await base44.entities.Subscription.create({
+          tenant_id: tenant.id,
           plan_name: globalSettings?.default_plan_name || SUBSCRIPTION_PLAN.name,
           plan_price: globalSettings?.default_plan_price || SUBSCRIPTION_PLAN.price,
           billing_cycle: 'monthly',

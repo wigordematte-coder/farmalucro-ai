@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, withTenantId } from '@/lib/tenant';
 
 const SubscriptionContext = createContext(null);
 
@@ -49,6 +51,7 @@ export function getTrialDaysRemaining(trialEndDate) {
 export function SubscriptionProvider({ children }) {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
 
   const evaluateStatus = useCallback((sub) => {
     if (!sub) return null;
@@ -84,9 +87,11 @@ export function SubscriptionProvider({ children }) {
 
   const loadSubscription = useCallback(async () => {
     try {
-      const list = await base44.entities.Subscription.list('-created_date', 10);
-      if (list && list.length > 0) {
-        let sub = list[0];
+      if (roleLoading) return;
+      const list = await base44.entities.Subscription.list('-created_date', 50);
+      const tenantSubscriptions = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      if (tenantSubscriptions && tenantSubscriptions.length > 0) {
+        let sub = tenantSubscriptions[0];
         const evaluated = evaluateStatus(sub);
         if (evaluated.status !== sub.status) {
           const updated = await base44.entities.Subscription.update(sub.id, { status: evaluated.status });
@@ -115,7 +120,7 @@ export function SubscriptionProvider({ children }) {
       const trialStart = new Date();
       const trialEnd = new Date();
       trialEnd.setDate(trialEnd.getDate() + 14);
-      const created = await base44.entities.Subscription.create({
+      const created = await base44.entities.Subscription.create(withTenantId({
         plan_name: SUBSCRIPTION_PLAN.name,
         plan_price: SUBSCRIPTION_PLAN.price,
         billing_cycle: 'monthly',
@@ -123,14 +128,14 @@ export function SubscriptionProvider({ children }) {
         trial_start_date: trialStart.toISOString().split('T')[0],
         trial_end_date: trialEnd.toISOString().split('T')[0],
         auto_renew: true,
-      });
+      }, tenantId));
       setSubscription(created);
     } catch {
       setSubscription(null);
     } finally {
       setLoading(false);
     }
-  }, [evaluateStatus]);
+  }, [evaluateStatus, tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => {
     loadSubscription();

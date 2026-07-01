@@ -2,6 +2,10 @@
   "name": "Subscription",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "plan_name": {
       "type": "string",
       "title": "Plano",

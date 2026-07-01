@@ -2,6 +2,10 @@
   "name": "PharmacySettings",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "name": {
       "type": "string",
       "title": "Nome da Farm\u00e1cia",

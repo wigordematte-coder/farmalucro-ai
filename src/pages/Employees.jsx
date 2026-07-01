@@ -38,14 +38,14 @@ function EmployeesContent() {
 
   const employees = useMemo(() => {
     if (tenantId) return users.filter(u => u.tenant_id === tenantId);
-    return users;
+    return [];
   }, [users, tenantId]);
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) { alert('Digite o e-mail.'); return; }
     setInviting(true);
     try {
-      await base44.users.inviteUser(inviteEmail.trim(), 'admin');
+      await base44.users.inviteUser(inviteEmail.trim(), 'user');
       await logAudit('user_management', `Convidou ${inviteEmail} como ${APP_ROLES[inviteRole]?.label}`, {
         metadata: { invited_email: inviteEmail, invited_role: inviteRole }
       });
@@ -144,7 +144,7 @@ function EmployeesContent() {
               </thead>
               <tbody>
                 {employees.map(emp => {
-                  const appRole = emp.app_role || (emp.role === 'admin' ? 'pharmacy_admin' : 'operator');
+                  const appRole = emp.app_role || 'operator';
                   const roleCfg = APP_ROLES[appRole] || APP_ROLES.operator;
                   const isSelf = emp.id === user?.id;
                   return (

@@ -4,6 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { useSubscription, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUSES } from '@/lib/subscriptionContext';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { formatCurrency } from '@/lib/pricing';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, withTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 import StatusBadge from '@/components/subscription/StatusBadge';
 import PlanDetails from '@/components/subscription/PlanDetails';
@@ -27,6 +29,7 @@ function formatDate(dateStr) {
 export default function Subscription() {
   const { subscription, loading, updateSubscription, reloadSubscription } = useSubscription();
   const { settings } = usePharmacy();
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
   const [payments, setPayments] = useState([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [paymentDialog, setPaymentDialog] = useState(false);
@@ -36,15 +39,16 @@ export default function Subscription() {
 
   const loadPayments = useCallback(async () => {
     try {
+      if (roleLoading) return;
       setPaymentsLoading(true);
       const list = await base44.entities.Payment.list('-created_date', 100);
-      setPayments(list || []);
+      setPayments(isSuperAdmin ? (list || []) : filterByTenant(list, tenantId));
     } catch {
       setPayments([]);
     } finally {
       setPaymentsLoading(false);
     }
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
@@ -75,7 +79,7 @@ export default function Subscription() {
 
     await updateSubscription(updateData);
 
-    await base44.entities.Payment.create({
+    await base44.entities.Payment.create(withTenantId({
       amount: SUBSCRIPTION_PLAN.price,
       method: selectedMethod,
       status: 'paid',
@@ -83,7 +87,7 @@ export default function Subscription() {
       due_date: today,
       transaction_id: `txn_${Date.now()}`,
       description: `Assinatura ${SUBSCRIPTION_PLAN.name} - ${formatDate(today)}`,
-    });
+    }, tenantId));
 
     setPaymentDialog(false);
     setSelectedMethod(null);

@@ -7,6 +7,8 @@ import { useOpportunities } from '@/hooks/useOpportunities';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { formatCurrency, calculatePotentialProfit, calculateInventoryValue, isExpiringSoon } from '@/lib/pricing';
 import { PHARMACY_BENCHMARKS } from '@/lib/constants';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, withTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const SUGGESTED_QUESTIONS = [
@@ -21,6 +23,7 @@ const SUGGESTED_QUESTIONS = [
 export default function AIAssistant() {
   const { products } = useProducts();
   const { settings } = usePharmacy();
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
   const { opportunities, stats: oppStats } = useOpportunities(products, settings);
   const [conversations, setConversations] = useState([]);
   const [currentConvId, setCurrentConvId] = useState(null);
@@ -32,27 +35,31 @@ export default function AIAssistant() {
 
   const loadConversations = useCallback(async () => {
     try {
+      if (roleLoading) return;
       const list = await base44.entities.ChatConversation.list('-created_date', 50);
-      setConversations(list || []);
-      if (list && list.length > 0 && !currentConvId) {
-        setCurrentConvId(list[0].id);
+      const tenantConversations = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      setConversations(tenantConversations);
+      if (tenantConversations && tenantConversations.length > 0 && !currentConvId) {
+        setCurrentConvId(tenantConversations[0].id);
       }
     } catch (e) {
       setConversations([]);
     }
-  }, [currentConvId]);
+  }, [currentConvId, tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   const loadMessages = useCallback(async (convId) => {
     if (!convId) return;
     try {
+      if (roleLoading) return;
       const list = await base44.entities.ChatMessage.filter({ conversation_id: convId }, '-created_date', 200);
-      setMessages((list || []).reverse());
+      const tenantMessages = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      setMessages(tenantMessages.reverse());
     } catch (e) {
       setMessages([]);
     }
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { if (currentConvId) loadMessages(currentConvId); }, [currentConvId, loadMessages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -101,7 +108,7 @@ BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) =
     let convId = currentConvId;
     if (!convId) {
       try {
-        const conv = await base44.entities.ChatConversation.create({ title: question.substring(0, 40) });
+        const conv = await base44.entities.ChatConversation.create(withTenantId({ title: question.substring(0, 40) }, tenantId));
         convId = conv.id;
         setCurrentConvId(convId);
         setConversations(prev => [conv, ...prev]);
@@ -114,7 +121,7 @@ BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) =
     setLoading(true);
 
     try {
-      await base44.entities.ChatMessage.create({ conversation_id: convId, role: 'user', content: question });
+      await base44.entities.ChatMessage.create(withTenantId({ conversation_id: convId, role: 'user', content: question }, tenantId));
 
       const context = buildContext();
       const prompt = `Você é o "Consultor FarmaLucro AI", um especialista sênior em gestão farmacêutica com foco em lucratividade, precificação estratégica e giro de estoque.
@@ -144,7 +151,7 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
       const assistantMsg = { role: 'assistant', content: responseText, conversation_id: convId };
       setMessages(prev => [...prev, assistantMsg]);
 
-      await base44.entities.ChatMessage.create({ conversation_id: convId, role: 'assistant', content: responseText });
+      await base44.entities.ChatMessage.create(withTenantId({ conversation_id: convId, role: 'assistant', content: responseText }, tenantId));
       await base44.entities.ChatConversation.update(convId, { last_message: question.substring(0, 50) });
       loadConversations();
     } catch (e) {

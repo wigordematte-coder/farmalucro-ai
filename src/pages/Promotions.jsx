@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Zap, PackagePlus, TrendingDown, Gift, Crown, Plus, Trash2, AlertTriangle, CheckCircle2, Tag, Loader2 } from 'lucide-react';
+import { Zap, PackagePlus, TrendingDown, Gift, Crown, Plus, Trash2, AlertTriangle, Tag, Loader2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import EmptyState from '@/components/EmptyState';
 import ABCBadge from '@/components/ABCBadge';
 import { useProducts } from '@/hooks/useProducts';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { PROMOTION_TYPES } from '@/lib/constants';
-import { formatCurrency, formatPercent } from '@/lib/pricing';
+import { formatPercent } from '@/lib/pricing';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, withTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const ICONS = { Zap, PackagePlus, TrendingDown, Gift, Crown };
@@ -14,14 +16,16 @@ const ICONS = { Zap, PackagePlus, TrendingDown, Gift, Crown };
 export default function Promotions() {
   const { products, loading, reloadProducts } = useProducts();
   const { settings } = usePharmacy();
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
   const [promotions, setPromotions] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const loadPromotions = async () => {
     try {
+      if (roleLoading) return;
       const list = await base44.entities.Promotion.list('-created_date', 50);
-      setPromotions(list || []);
+      setPromotions(isSuperAdmin ? (list || []) : filterByTenant(list, tenantId));
     } catch (e) {
       setPromotions([]);
     }
@@ -29,7 +33,7 @@ export default function Promotions() {
 
   useEffect(() => {
     loadPromotions();
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   const eligibleProducts = useMemo(() => {
     if (!products) return [];
@@ -46,7 +50,7 @@ export default function Promotions() {
       const impactMargin = idealMargin - discount;
       const productNames = selected.map(p => p.name);
 
-      await base44.entities.Promotion.create({
+      await base44.entities.Promotion.create(withTenantId({
         name: 'Oferta Relâmpago — Liquidação de Estoque',
         type: 'flash_offer',
         product_names: productNames,
@@ -54,7 +58,7 @@ export default function Promotions() {
         impact_margin: impactMargin,
         active: true,
         description: `Promoção automática para ${selected.length} produtos de baixo giro. Desconto de ${discount}% para acelerar o giro de estoque.`,
-      });
+      }, tenantId));
 
       const productIds = selected.map(p => p.id);
       await base44.entities.Product.updateMany({ _id: { $in: productIds } }, { $set: { on_promotion: true } });
@@ -158,6 +162,7 @@ export default function Promotions() {
         <PromotionForm
           products={products}
           settings={settings}
+          tenantId={tenantId}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); loadPromotions(); reloadProducts(); }}
         />
@@ -230,7 +235,7 @@ function PromotionCard({ promo, onToggle, onDelete, settings }) {
   );
 }
 
-function PromotionForm({ products, settings, onClose, onSaved }) {
+function PromotionForm({ products, settings, tenantId, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: '',
     type: 'flash_offer',
@@ -256,11 +261,11 @@ function PromotionForm({ products, settings, onClose, onSaved }) {
     if (!form.name || form.product_names.length === 0) return;
     setSaving(true);
     try {
-      await base44.entities.Promotion.create({
+      await base44.entities.Promotion.create(withTenantId({
         ...form,
         impact_margin: impactMargin,
         discount: Number(form.discount),
-      });
+      }, tenantId));
 
       const productIds = products.filter(p => form.product_names.includes(p.name)).map(p => p.id);
       if (productIds.length > 0) {

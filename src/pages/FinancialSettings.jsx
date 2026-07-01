@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, Plus, Loader2, Lock, CreditCard, Activity } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { cn } from '@/lib/utils';
+import { useUserRole } from '@/lib/roles';
 import GatewayCard from '@/components/admin/GatewayCard';
 import GatewayForm from '@/components/admin/GatewayForm';
 import TransactionLogs from '@/components/admin/TransactionLogs';
@@ -19,24 +19,7 @@ export default function FinancialSettings() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingGateway, setEditingGateway] = useState(null);
   const [testingId, setTestingId] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  const checkAdmin = useCallback(async () => {
-    try {
-      const user = await base44.auth.me();
-      if (user?.role !== 'admin') {
-        setAuthChecked(true);
-        return false;
-      }
-      setIsAdmin(true);
-      setAuthChecked(true);
-      return true;
-    } catch {
-      setAuthChecked(true);
-      return false;
-    }
-  }, []);
+  const { isSuperAdmin, loading: roleLoading } = useUserRole();
 
   const loadGateways = useCallback(async () => {
     try {
@@ -67,13 +50,11 @@ export default function FinancialSettings() {
   }, []);
 
   useEffect(() => {
-    checkAdmin().then(ok => {
-      if (ok) {
-        loadGateways();
-        loadLogs();
-      }
-    });
-  }, [checkAdmin, loadGateways, loadLogs]);
+    if (isSuperAdmin) {
+      loadGateways();
+      loadLogs();
+    }
+  }, [isSuperAdmin, loadGateways, loadLogs]);
 
   const handleSave = async (formData) => {
     try {
@@ -153,7 +134,7 @@ export default function FinancialSettings() {
     }
   };
 
-  if (!authChecked) {
+  if (roleLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -161,7 +142,7 @@ export default function FinancialSettings() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">

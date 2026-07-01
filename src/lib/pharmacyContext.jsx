@@ -1,22 +1,27 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, withTenantId } from '@/lib/tenant';
 
 const PharmacyContext = createContext(null);
 
 export function PharmacyProvider({ children }) {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
 
   const loadSettings = useCallback(async () => {
     try {
+      if (roleLoading) return null;
       const list = await base44.entities.PharmacySettings.list();
-      if (list && list.length > 0) {
-        setSettings(list[0]);
-        return list[0];
+      const tenantSettings = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      if (tenantSettings && tenantSettings.length > 0) {
+        setSettings(tenantSettings[0]);
+        return tenantSettings[0];
       } else {
         const trialEnd = new Date();
         trialEnd.setDate(trialEnd.getDate() + 14);
-        const created = await base44.entities.PharmacySettings.create({
+        const created = await base44.entities.PharmacySettings.create(withTenantId({
           name: 'Minha Farmácia',
           city: '',
           min_margin: 15,
@@ -26,7 +31,7 @@ export function PharmacyProvider({ children }) {
           subscription_status: 'trial',
           subscription_plan: 'Mensal Único',
           trial_end_date: trialEnd.toISOString().split('T')[0],
-        });
+        }, tenantId));
         setSettings(created);
         return created;
       }
@@ -46,7 +51,7 @@ export function PharmacyProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => {
     loadSettings();
@@ -59,7 +64,7 @@ export function PharmacyProvider({ children }) {
         setSettings(updated);
         return updated;
       } else {
-        const created = await base44.entities.PharmacySettings.create(data);
+        const created = await base44.entities.PharmacySettings.create(withTenantId(data, tenantId));
         setSettings(created);
         return created;
       }
@@ -67,7 +72,7 @@ export function PharmacyProvider({ children }) {
       setSettings(prev => ({ ...prev, ...data }));
       return { ...settings, ...data };
     }
-  }, [settings]);
+  }, [settings, tenantId]);
 
   return (
     <PharmacyContext.Provider value={{ settings, loading, updateSettings, reloadSettings: loadSettings }}>

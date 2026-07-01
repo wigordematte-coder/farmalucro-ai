@@ -10,6 +10,7 @@ import { PharmacyProvider } from '@/lib/pharmacyContext';
 import { SubscriptionProvider } from '@/lib/subscriptionContext';
 import { GlobalSettingsProvider } from '@/lib/globalSettingsContext';
 import Layout from '@/components/Layout';
+import RoleGuard from '@/components/RoleGuard';
 
 import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
@@ -28,6 +29,7 @@ import Precificacao from '@/pages/Precificacao';
 import Perfil from '@/pages/Perfil';
 import Results from '@/pages/Results';
 import AdminPanel from '@/pages/AdminPanel';
+import FinancialSettings from '@/pages/FinancialSettings';
 import Tenants from '@/pages/superadmin/Tenants';
 import Subscriptions from '@/pages/superadmin/Subscriptions';
 import Revenue from '@/pages/superadmin/Revenue';
@@ -40,6 +42,12 @@ import GlobalSettingsPage from '@/pages/superadmin/GlobalSettings';
 import MercadoPagoSettings from '@/pages/superadmin/MercadoPagoSettings';
 
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
+
+const withRole = (element, allowedRoles) => (
+  <RoleGuard allowedRoles={allowedRoles}>{element}</RoleGuard>
+);
+
+const withSuperAdmin = (element) => withRole(element, ['super_admin']);
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
@@ -98,24 +106,25 @@ const AuthenticatedApp = () => {
               <Route path="/dashboard" element={<Home />} />
               <Route path="/importacao" element={<Import />} />
               <Route path="/produtos" element={<Products />} />
-              <Route path="/precificacao" element={<Precificacao />} />
-              <Route path="/consultor-ia" element={<AIAssistant />} />
-              <Route path="/relatorios" element={<Reports />} />
-              <Route path="/resultados" element={<Results />} />
-              <Route path="/configuracoes" element={<Settings />} />
-              <Route path="/assinatura" element={<Subscription />} />
+              <Route path="/precificacao" element={withRole(<Precificacao />, ['pharmacy_admin', 'pharmacist'])} />
+              <Route path="/consultor-ia" element={withRole(<AIAssistant />, ['pharmacy_admin', 'pharmacist'])} />
+              <Route path="/relatorios" element={withRole(<Reports />, ['pharmacy_admin', 'pharmacist'])} />
+              <Route path="/resultados" element={withRole(<Results />, ['pharmacy_admin', 'pharmacist'])} />
+              <Route path="/configuracoes" element={withRole(<Settings />, ['pharmacy_admin'])} />
+              <Route path="/assinatura" element={withRole(<Subscription />, ['pharmacy_admin'])} />
               <Route path="/perfil" element={<Perfil />} />
-              <Route path="/admin" element={<AdminPanel />} />
-              <Route path="/admin/clientes" element={<Tenants />} />
-              <Route path="/admin/assinaturas" element={<Subscriptions />} />
-              <Route path="/admin/cobrancas" element={<Billing />} />
-              <Route path="/admin/receita" element={<Revenue />} />
-              <Route path="/admin/logs" element={<AuditLogs />} />
-              <Route path="/admin/configuracoes" element={<GlobalSettingsPage />} />
-              <Route path="/admin/planos" element={<Plans />} />
-              <Route path="/admin/usuarios" element={<SuperAdminUsers />} />
-              <Route path="/admin/suporte" element={<Support />} />
-              <Route path="/admin/mercadopago" element={<MercadoPagoSettings />} />
+              <Route path="/admin" element={withSuperAdmin(<AdminPanel />)} />
+              <Route path="/admin/clientes" element={withSuperAdmin(<Tenants />)} />
+              <Route path="/admin/assinaturas" element={withSuperAdmin(<Subscriptions />)} />
+              <Route path="/admin/cobrancas" element={withSuperAdmin(<Billing />)} />
+              <Route path="/admin/financeiro" element={withSuperAdmin(<FinancialSettings />)} />
+              <Route path="/admin/receita" element={withSuperAdmin(<Revenue />)} />
+              <Route path="/admin/logs" element={withSuperAdmin(<AuditLogs />)} />
+              <Route path="/admin/configuracoes" element={withSuperAdmin(<GlobalSettingsPage />)} />
+              <Route path="/admin/planos" element={withSuperAdmin(<Plans />)} />
+              <Route path="/admin/usuarios" element={withSuperAdmin(<SuperAdminUsers />)} />
+              <Route path="/admin/suporte" element={withSuperAdmin(<Support />)} />
+              <Route path="/admin/mercadopago" element={withSuperAdmin(<MercadoPagoSettings />)} />
             </Route>
             <Route path="*" element={<PageNotFound />} />
           </Routes>
