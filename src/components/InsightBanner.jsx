@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, Lightbulb } from 'lucide-react';
+import { Sparkles, RefreshCw, Lightbulb, ArrowUpRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { calculatePotentialProfit, calculateInventoryValue, formatCurrency } from '@/lib/pricing';
 import { PHARMACY_BENCHMARKS } from '@/lib/constants';
@@ -70,11 +70,10 @@ Gere uma recomendação direta e prática, mencionando valores e nomes de produt
   }, [products, settings]);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl gradient-farma p-5 lg:p-6 text-white">
-      <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
-      <div className="absolute bottom-0 left-1/3 w-24 h-24 bg-white/5 rounded-full translate-y-1/2" />
-      <div className="relative flex items-start gap-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
+    <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-primary via-ai to-accent p-4 lg:p-5 text-white shadow-lg shadow-primary/10">
+      <div className="absolute inset-x-0 top-0 h-px bg-white/30" />
+      <div className="relative flex flex-col sm:flex-row sm:items-start gap-4">
+        <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15">
           {loading ? (
             <RefreshCw className="w-6 h-6 animate-spin" />
           ) : (
@@ -82,11 +81,12 @@ Gere uma recomendação direta e prática, mencionando valores e nomes de produt
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="text-sm font-semibold flex items-center gap-1.5">
-              <Lightbulb className="w-4 h-4 text-accent" />
-              Insight do Dia — Consultor FarmaLucro AI
+              <Lightbulb className="w-4 h-4 text-white/80" />
+              Insight executivo do dia
             </h3>
+            <ArrowUpRight className="w-4 h-4 text-white/70 flex-shrink-0" />
           </div>
           <p className="text-sm lg:text-base text-white/90 leading-relaxed">
             {insight || 'Carregando insight...'}
