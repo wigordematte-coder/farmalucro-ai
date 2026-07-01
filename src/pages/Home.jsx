@@ -4,6 +4,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
+import { useUserRole } from '@/lib/roles';
 import DailySummary from '@/components/dashboard/DailySummary';
 import PriorityActions from '@/components/dashboard/PriorityActions';
 import SmartAlerts from '@/components/dashboard/SmartAlerts';
@@ -33,6 +34,7 @@ function calcFarmaScore(products, opportunities, settings) {
 
 export default function Home() {
   const { products, loading, settings } = useProducts();
+  const { tenantId } = useUserRole();
   const { opportunities, stats, topCategories } = useOpportunities(products, settings);
 
   if (loading) {
@@ -69,7 +71,7 @@ export default function Home() {
         <FarmaScore products={products} opportunities={opportunities} settings={settings} />
       </div>
 
-      <InsightBanner products={products} settings={settings} />
+      <InsightBanner products={products} settings={settings} tenantId={tenantId} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
