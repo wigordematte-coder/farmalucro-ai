@@ -11,6 +11,25 @@ import FarmaScore from '@/components/dashboard/FarmaScore';
 import CEOMode from '@/components/dashboard/CEOMode';
 import OpportunitySection from '@/components/OpportunitySection';
 
+function calcFarmaScore(products, opportunities, settings) {
+  if (!products || products.length === 0) return undefined;
+  const minMargin = settings?.min_margin || 15;
+  const idealMargin = settings?.ideal_margin || 30;
+  const withMargin = products.filter(p => (p.margin_pct || 0) > 0);
+  const avgMargin = withMargin.length > 0 ? withMargin.reduce((s, p) => s + p.margin_pct, 0) / withMargin.length : 0;
+  const marginScore = Math.min(35, Math.round((avgMargin / idealMargin) * 35));
+  const withSales = products.filter(p => (p.monthly_sales || 0) > 0);
+  const giroScore = Math.min(25, Math.round((withSales.length / products.length) * 25));
+  const parado = products.filter(p => p.abc_class === 'C' && (p.quantity || 0) > 0).length;
+  const paradoPenalty = Math.min(15, Math.round((parado / products.length) * 15));
+  const opp = opportunities || [];
+  const applied = opp.filter(o => o.status === 'aplicada').length;
+  const oppScore = Math.min(20, Math.round((applied / (opp.length || 1)) * 20));
+  const highMargin = products.filter(p => (p.margin_pct || 0) >= idealMargin).length;
+  const healthScore = Math.min(20, Math.round((highMargin / products.length) * 20));
+  return Math.max(0, Math.min(100, marginScore + giroScore - paradoPenalty + oppScore + healthScore));
+}
+
 export default function Home() {
   const { products, loading, settings } = useProducts();
   const { opportunities, stats, topCategories } = useOpportunities(products, settings);
@@ -30,6 +49,7 @@ export default function Home() {
   const opps = (type) => opportunities.filter(o => o.type === type);
   const priorityActions = opportunities.filter(o => o.priority === 'alta').slice(0, 5);
   const byType = stats?.byType || {};
+  const farmaScore = calcFarmaScore(products, opportunities, settings);
 
   return (
     <div className="space-y-5">
@@ -38,9 +58,11 @@ export default function Home() {
         <p className="text-sm text-muted-foreground mt-1">Seu consultor comercial identificou {opportunities.length} oportunidades para aumentar seu lucro.</p>
       </div>
 
-      {/* Resumo diário + FarmaScore lado a lado em desktop */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DailySummary stats={stats} settings={settings} />
+      {/* Resumo diário premium */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <DailySummary stats={stats} settings={settings} farmaScore={farmaScore} />
+        </div>
         <FarmaScore products={products} opportunities={opportunities} settings={settings} />
       </div>
 
