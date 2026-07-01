@@ -58,8 +58,14 @@ export default function FinancialSettings() {
 
   const handleSave = async (formData) => {
     try {
+      const sanitizedFormData = { ...formData };
+      if (sanitizedFormData.provider_type === 'mercadopago') {
+        delete sanitizedFormData.api_key;
+        delete sanitizedFormData.public_key;
+        delete sanitizedFormData.secret_key;
+      }
       if (editingGateway?.id) {
-        const updateData = { ...formData };
+        const updateData = { ...sanitizedFormData };
         Object.keys(updateData).forEach(k => {
           if (typeof updateData[k] === 'string' && updateData[k] === '' && ['api_key', 'public_key', 'secret_key'].includes(k)) {
             delete updateData[k];
@@ -67,7 +73,7 @@ export default function FinancialSettings() {
         });
         await base44.entities.PaymentGateway.update(editingGateway.id, updateData);
       } else {
-        await base44.entities.PaymentGateway.create(formData);
+        await base44.entities.PaymentGateway.create(sanitizedFormData);
       }
       setFormOpen(false);
       setEditingGateway(null);
@@ -103,6 +109,8 @@ export default function FinancialSettings() {
   const handleTest = async (gw) => {
     setTestingId(gw.id);
     try {
+      const usesBackendSecrets = gw.provider_type === 'mercadopago';
+      const hasCredentials = usesBackendSecrets || Boolean(gw.api_key);
       await base44.integrations.Core.InvokeLLM({
         prompt: `Simule um teste de conexão com gateway de pagamento (${gw.provider_type}, ambiente: ${gw.environment}). O gateway possui credenciais configuradas. Responda se a conexão foi bem-sucedida.`,
         response_json_schema: {
@@ -121,8 +129,10 @@ export default function FinancialSettings() {
       await base44.entities.TransactionLog.create({
         transaction_id: `test_${Date.now()}`,
         gateway_name: gw.name,
-        status: gw.api_key ? 'approved' : 'error',
-        api_message: gw.api_key ? 'Teste de conexão realizado com sucesso.' : 'Teste falhou: credenciais ausentes.',
+        status: hasCredentials ? 'approved' : 'error',
+        api_message: usesBackendSecrets
+          ? 'Mercado Pago configurado via secrets do backend/Base44.'
+          : hasCredentials ? 'Teste de conexão realizado com sucesso.' : 'Teste falhou: credenciais ausentes.',
         event_type: 'connection_test',
         amount: 0,
       });

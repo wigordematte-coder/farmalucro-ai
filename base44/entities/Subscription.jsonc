@@ -27,15 +27,15 @@
     "status": {
       "type": "string",
       "enum": [
-        "trial",
+        "trialing",
         "active",
-        "pending_payment",
-        "overdue",
-        "blocked",
-        "cancelled"
+        "pending",
+        "past_due",
+        "cancelled",
+        "expired"
       ],
       "title": "Status da Assinatura",
-      "default": "trial"
+      "default": "trialing"
     },
     "payment_method": {
       "type": "string",

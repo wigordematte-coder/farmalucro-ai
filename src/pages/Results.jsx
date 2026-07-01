@@ -40,7 +40,7 @@ export default function Results() {
   const { opportunities, stats } = useOpportunities(products, settings);
   const { subscription } = useSubscription();
 
-  const isTrial = subscription?.status === 'trial';
+  const isTrial = subscription?.status === 'trialing';
   const trialStart = subscription?.trial_start_date;
   const daysUsing = daysSince(trialStart || subscription?.subscription_start_date);
 

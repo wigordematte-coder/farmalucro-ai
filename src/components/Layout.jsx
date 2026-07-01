@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
-import { Menu, Bell, ShieldCheck, Lock, User } from 'lucide-react';
+import { Menu, Bell, ShieldCheck, Lock } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import TrialBanner from '@/components/TrialBanner';
@@ -89,7 +89,7 @@ export default function Layout({ children }) {
         </header>
 
         <main className="px-4 lg:px-8 py-6 pb-24 lg:pb-8">
-          {!isSuperAdmin && subscription?.status === 'trial' && !showAwaiting && !showBlocked && (
+          {!isSuperAdmin && subscription?.status === 'trialing' && !showAwaiting && !showBlocked && (
             <div className="mb-4">
               <TrialBanner />
             </div>

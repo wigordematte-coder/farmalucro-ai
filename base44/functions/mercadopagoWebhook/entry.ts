@@ -1,133 +1,163 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+function addMonth(date: Date) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + 1);
+  return next.toISOString().split('T')[0];
+}
+
+function getNotificationData(body: Record<string, any>) {
+  const topic = body.topic || body.type || body.action;
+  const resourceId = body.data?.id || body.resource?.split('/').pop() || body.id;
+  return { topic, resourceId };
+}
+
+function mapPaymentStatus(status: string) {
+  if (status === 'approved') return { eventType: 'payment_approved', subscriptionStatus: 'active', paymentStatus: 'paid' };
+  if (status === 'pending' || status === 'in_process') return { eventType: 'payment_pending', subscriptionStatus: 'pending', paymentStatus: 'pending' };
+  if (status === 'rejected' || status === 'cancelled') return { eventType: 'payment_declined', subscriptionStatus: 'past_due', paymentStatus: 'failed' };
+  if (status === 'refunded' || status === 'charged_back') return { eventType: 'refund', subscriptionStatus: 'past_due', paymentStatus: 'refunded' };
+  if (status === 'expired') return { eventType: 'payment_expired', subscriptionStatus: 'expired', paymentStatus: 'expired' };
+  return { eventType: 'payment_unknown', subscriptionStatus: null, paymentStatus: 'pending' };
+}
+
 Deno.serve(async (req) => {
   try {
-    // Only accept POST
     if (req.method !== 'POST') {
       return Response.json({ error: 'Method not allowed' }, { status: 405 });
     }
 
-    const body = await req.json();
+    const accessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+    if (!accessToken) {
+      return Response.json({ error: 'Mercado Pago access token not configured' }, { status: 500 });
+    }
 
-    // Validate it's a Mercado Pago notification
-    const topic = body.topic || body.type;
-    const resourceId = body.data?.id || body.resource?.split('/').pop();
+    const base44 = createClientFromRequest(req);
+    const body = await req.json();
+    const { topic, resourceId } = getNotificationData(body);
 
     if (!topic || !resourceId) {
       return Response.json({ received: true }, { status: 200 });
     }
 
-    // Use service role for DB updates
-    const base44 = createClientFromRequest(req);
-
-    // Load the MP gateway to get the access token
-    const gateways = await base44.asServiceRole.entities.PaymentGateway.filter({ provider_type: 'mercadopago', status: 'active' });
-    const gateway = gateways?.[0];
-    if (!gateway?.api_key) {
-      return Response.json({ error: 'Gateway not configured' }, { status: 500 });
-    }
-
-    // Fetch payment/subscription details from MP API
-    let mpData = null;
+    let mpData: any = null;
     let eventType = 'unknown';
-    let newStatus = null;
+    let subscriptionStatus: string | null = null;
+    let paymentStatus = 'pending';
     let amount = 0;
     let clientEmail = '';
+    let tenantId = '';
+    let method = 'credit_card';
 
-    if (topic === 'payment' || topic === 'payment.updated' || topic === 'payment.created') {
+    if (String(topic).includes('payment')) {
       const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, {
-        headers: { Authorization: `Bearer ${gateway.api_key}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       mpData = await mpRes.json();
       amount = mpData.transaction_amount || 0;
       clientEmail = mpData.payer?.email || '';
+      tenantId = mpData.metadata?.tenant_id || mpData.external_reference || '';
+      method = mpData.payment_method_id === 'pix' ? 'pix' : 'credit_card';
 
-      if (mpData.status === 'approved') {
-        eventType = 'payment_approved';
-        newStatus = 'active';
-      } else if (mpData.status === 'rejected' || mpData.status === 'cancelled') {
-        eventType = 'payment_declined';
-        newStatus = 'pending_payment';
-      } else if (mpData.status === 'pending' || mpData.status === 'in_process') {
-        eventType = 'payment_pending';
-        newStatus = null; // Don't change subscription status yet
-      } else if (mpData.status === 'refunded' || mpData.status === 'charged_back') {
-        eventType = 'refund';
-        newStatus = 'pending_payment';
-      }
-    } else if (topic === 'subscription_preapproval') {
+      const mapped = mapPaymentStatus(mpData.status);
+      eventType = mapped.eventType;
+      subscriptionStatus = mapped.subscriptionStatus;
+      paymentStatus = mapped.paymentStatus;
+    } else if (String(topic).includes('subscription_preapproval')) {
       const mpRes = await fetch(`https://api.mercadopago.com/preapproval/${resourceId}`, {
-        headers: { Authorization: `Bearer ${gateway.api_key}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       mpData = await mpRes.json();
       clientEmail = mpData.payer_email || '';
+      tenantId = mpData.metadata?.tenant_id || mpData.external_reference || '';
+      amount = mpData.auto_recurring?.transaction_amount || 0;
 
       if (mpData.status === 'cancelled') {
         eventType = 'cancellation';
-        newStatus = 'cancelled';
+        subscriptionStatus = 'cancelled';
+        paymentStatus = 'failed';
+      } else if (mpData.status === 'authorized') {
+        eventType = 'subscription_authorized';
+        subscriptionStatus = 'active';
+        paymentStatus = 'paid';
+      } else {
+        eventType = 'subscription_pending';
+        subscriptionStatus = 'pending';
       }
     }
 
-    // Log the webhook event
     await base44.asServiceRole.entities.WebhookEvent.create({
       gateway_name: 'mercadopago',
       event_type: eventType,
-      transaction_id: resourceId,
-      status: mpData?.status || topic,
-      payload: JSON.stringify(body),
-      processed: true,
+      transaction_id: String(resourceId),
+      status: mpData?.status || String(topic),
+      payload: JSON.stringify({ body, tenant_id: tenantId }),
+      processed: Boolean(tenantId),
     });
 
-    // Log the transaction
     if (mpData) {
       await base44.asServiceRole.entities.TransactionLog.create({
-        transaction_id: resourceId,
+        transaction_id: String(resourceId),
         gateway_name: 'Mercado Pago',
         client_email: clientEmail,
         amount,
-        status: eventType === 'payment_approved' ? 'approved' :
-                eventType === 'payment_declined' ? 'declined' :
-                eventType === 'payment_pending' ? 'pending' :
-                eventType === 'refund' ? 'refunded' :
-                eventType === 'cancellation' ? 'cancelled' : 'pending',
+        status: paymentStatus === 'paid' ? 'approved' :
+                paymentStatus === 'failed' ? 'declined' :
+                paymentStatus === 'refunded' ? 'refunded' :
+                paymentStatus === 'expired' ? 'cancelled' : 'pending',
         event_type: eventType,
         api_message: mpData?.status_detail || mpData?.status || '',
       });
     }
 
-    // Update subscription status if we have a new status
-    if (newStatus && clientEmail) {
-      const subscriptions = await base44.asServiceRole.entities.Subscription.filter({ billing_email: clientEmail });
-      if (subscriptions && subscriptions.length > 0) {
-        const sub = subscriptions[0];
-        const today = new Date().toISOString().split('T')[0];
-        const updateData = { status: newStatus };
+    if (!tenantId || !subscriptionStatus) {
+      return Response.json({ received: true }, { status: 200 });
+    }
 
-        if (newStatus === 'active') {
-          const nextMonth = new Date();
-          nextMonth.setMonth(nextMonth.getMonth() + 1);
-          updateData.last_payment_date = today;
-          updateData.next_billing_date = nextMonth.toISOString().split('T')[0];
-        } else if (newStatus === 'cancelled') {
-          updateData.cancelled_date = today;
-          updateData.auto_renew = false;
-        }
+    const subscriptions = await base44.asServiceRole.entities.Subscription.filter({ tenant_id: tenantId });
+    const sub = subscriptions?.[0];
+    if (!sub?.id) {
+      return Response.json({ received: true, warning: 'Subscription not found for tenant' }, { status: 200 });
+    }
 
-        await base44.asServiceRole.entities.Subscription.update(sub.id, updateData);
+    const today = new Date();
+    const todayIso = today.toISOString().split('T')[0];
+    const updateData: Record<string, any> = {
+      status: subscriptionStatus,
+      payment_method: method,
+    };
 
-        // Also create a Payment record for approved payments
-        if (newStatus === 'active' && amount > 0) {
-          await base44.asServiceRole.entities.Payment.create({
-            amount,
-            method: mpData?.payment_method_id?.includes('pix') ? 'pix' : 'credit_card',
-            status: 'paid',
-            payment_date: today,
-            due_date: today,
-            transaction_id: resourceId,
-            description: `Assinatura FarmaLucro AI - Mercado Pago`,
-          });
-        }
-      }
+    if (subscriptionStatus === 'active') {
+      updateData.last_payment_date = todayIso;
+      updateData.next_billing_date = addMonth(today);
+      updateData.cancelled_date = null;
+      updateData.cancellation_reason = null;
+      updateData.auto_renew = true;
+    } else if (subscriptionStatus === 'cancelled') {
+      updateData.cancelled_date = todayIso;
+      updateData.auto_renew = false;
+    }
+
+    await base44.asServiceRole.entities.Subscription.update(sub.id, updateData);
+    const tenantUpdate: Record<string, any> = {
+      subscription_status: subscriptionStatus,
+    };
+    if (updateData.next_billing_date) {
+      tenantUpdate.subscription_end_date = updateData.next_billing_date;
+    }
+    await base44.asServiceRole.entities.Tenant.update(tenantId, tenantUpdate).catch(() => {});
+
+    if (paymentStatus === 'paid' && amount > 0) {
+      await base44.asServiceRole.entities.Payment.create({
+        tenant_id: tenantId,
+        amount,
+        method,
+        status: 'paid',
+        payment_date: todayIso,
+        due_date: todayIso,
+        transaction_id: String(resourceId),
+        description: 'Assinatura FarmaLucro AI - Mercado Pago',
+      });
     }
 
     return Response.json({ received: true }, { status: 200 });

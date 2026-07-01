@@ -51,13 +51,15 @@
     "subscription_status": {
       "type": "string",
       "enum": [
-        "trial",
+        "trialing",
         "active",
+        "pending",
+        "past_due",
         "expired",
         "cancelled"
       ],
       "title": "Status da Assinatura",
-      "default": "trial"
+      "default": "trialing"
     },
     "subscription_plan": {
       "type": "string",

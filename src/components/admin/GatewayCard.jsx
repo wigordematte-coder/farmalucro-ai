@@ -14,6 +14,7 @@ function maskKey(key) {
 
 export default function GatewayCard({ gateway, onEdit, onDelete, onSetDefault, onTest, testingId }) {
   const testing = testingId === gateway.id;
+  const usesBackendSecrets = gateway.provider_type === 'mercadopago';
   return (
     <div className={cn(
       "bg-card border rounded-2xl p-5",
@@ -47,14 +48,23 @@ export default function GatewayCard({ gateway, onEdit, onDelete, onSetDefault, o
             {gateway.environment === 'production' ? 'Produção' : 'Sandbox'}
           </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Token de Acesso</span>
-          <span className="font-mono text-xs text-foreground">{maskKey(gateway.api_key)}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Chave Secreta</span>
-          <span className="font-mono text-xs text-foreground">{maskKey(gateway.secret_key)}</span>
-        </div>
+        {usesBackendSecrets ? (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Credenciais</span>
+            <span className="text-xs text-foreground">Secrets do backend</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Token de Acesso</span>
+              <span className="font-mono text-xs text-foreground">{maskKey(gateway.api_key)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Chave Secreta</span>
+              <span className="font-mono text-xs text-foreground">{maskKey(gateway.secret_key)}</span>
+            </div>
+          </>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Webhook</span>
           <span className="font-mono text-xs text-foreground truncate max-w-[180px]">{gateway.webhook_url || '—'}</span>

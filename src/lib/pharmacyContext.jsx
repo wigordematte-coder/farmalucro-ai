@@ -31,7 +31,7 @@ export function PharmacyProvider({ children }) {
           ideal_margin: 30,
           max_margin: 50,
           objective: 'profit',
-          subscription_status: 'trial',
+          subscription_status: 'trialing',
           subscription_plan: 'Mensal Único',
           trial_end_date: trialEnd.toISOString().split('T')[0],
         }, tenantId));
@@ -46,7 +46,7 @@ export function PharmacyProvider({ children }) {
         ideal_margin: 30,
         max_margin: 50,
         objective: 'profit',
-        subscription_status: 'trial',
+        subscription_status: 'trialing',
         subscription_plan: 'Mensal Único',
       };
       setSettings(fallback);

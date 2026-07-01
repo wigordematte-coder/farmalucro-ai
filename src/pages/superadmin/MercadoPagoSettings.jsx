@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Eye, EyeOff, Save, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Webhook } from 'lucide-react';
+import { Shield, Save, CheckCircle2, AlertTriangle, Loader2, Webhook } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useUserRole } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -7,28 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
-function MaskedInput({ value, onChange, placeholder, id, ...props }) {
-  const [show, setShow] = useState(false);
-  const masked = value ? value.slice(0, 4) + '****' + value.slice(-4) : '';
+function MaskedInput() {
   return (
-    <div className="relative">
-      <Input
-        id={id}
-        type={show ? 'text' : 'password'}
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="pr-10"
-        {...props}
-      />
-      <button
-        type="button"
-        onClick={() => setShow(v => !v)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-      >
-        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-      </button>
-    </div>
+    <Input
+      disabled
+      value=""
+      placeholder="Configure este valor nos secrets do backend/Base44"
+      className="font-mono bg-muted"
+    />
   );
 }
 
@@ -36,9 +22,6 @@ export default function MercadoPagoSettings() {
   const { isSuperAdmin } = useUserRole();
   const [gateway, setGateway] = useState(null);
   const [form, setForm] = useState({
-    public_key: '',
-    api_key: '',
-    secret_key: '',
     environment: 'sandbox',
     status: 'inactive',
   });
@@ -62,9 +45,6 @@ export default function MercadoPagoSettings() {
         const g = list[0];
         setGateway(g);
         setForm({
-          public_key: g.public_key || '',
-          api_key: g.api_key || '',
-          secret_key: g.secret_key || '',
           environment: g.environment || 'sandbox',
           status: g.status || 'inactive',
         });
@@ -83,9 +63,6 @@ export default function MercadoPagoSettings() {
       const data = {
         name: 'Mercado Pago',
         provider_type: 'mercadopago',
-        public_key: form.public_key,
-        api_key: form.api_key,
-        secret_key: form.secret_key,
         environment: form.environment,
         status: form.status,
         is_default: true,

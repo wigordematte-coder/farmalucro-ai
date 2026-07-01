@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Building2, Users, CheckCircle2, AlertTriangle, DollarSign, TrendingDown,
-  TrendingUp, UserPlus, UserMinus, Globe, Loader2
+  TrendingUp, UserMinus, Globe, Loader2
 } from 'lucide-react';
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -12,12 +12,12 @@ import { formatCurrency } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
 
 const STATUS_COLORS = {
-  active: '#22c55e', trial: '#3b82f6', overdue: '#f59e0b',
-  blocked: '#ef4444', pending_payment: '#f59e0b', cancelled: '#6b7280', suspended: '#a855f7',
+  active: '#22c55e', trialing: '#3b82f6', pending: '#f59e0b', past_due: '#f59e0b',
+  expired: '#ef4444', cancelled: '#6b7280', suspended: '#a855f7',
 };
 const STATUS_LABELS = {
-  active: 'Ativas', trial: 'Trial', overdue: 'Em Atraso',
-  blocked: 'Bloqueadas', pending_payment: 'Pag. Pendente', cancelled: 'Canceladas', suspended: 'Suspensas',
+  active: 'Ativas', trialing: 'Trial', pending: 'Pag. Pendente', past_due: 'Em Atraso',
+  expired: 'Expiradas', cancelled: 'Canceladas', suspended: 'Suspensas',
 };
 const CHART_COLORS = ['#1e3a5f', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#6b7280'];
 
@@ -54,8 +54,8 @@ export default function AdminPanel() {
     const totalTenants = tenants.length;
     const totalUsers = users.length;
     const activeSubs = subscriptions.filter(s => s.status === 'active').length;
-    const overdueSubs = subscriptions.filter(s => s.status === 'overdue' || s.status === 'pending_payment').length;
-    const blockedSubs = subscriptions.filter(s => s.status === 'blocked').length;
+    const overdueSubs = subscriptions.filter(s => ['past_due', 'pending', 'overdue', 'pending_payment'].includes(s.status)).length;
+    const blockedSubs = subscriptions.filter(s => ['expired', 'blocked'].includes(s.status)).length;
     const cancelledSubs = subscriptions.filter(s => s.status === 'cancelled').length;
 
     const mrr = activeSubs * 197;

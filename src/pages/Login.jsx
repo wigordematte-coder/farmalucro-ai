@@ -43,7 +43,7 @@ export default function Login() {
           setCheckingCnpj(false);
           return;
         }
-        if (tenant.subscription_status === 'blocked' || tenant.is_suspended) {
+        if (['past_due', 'expired', 'cancelled', 'blocked', 'overdue'].includes(tenant.subscription_status) || tenant.is_suspended) {
           setError("Esta conta está bloqueada. Entre em contato com o suporte para regularizar.");
           setCheckingCnpj(false);
           return;

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Building2, Search, Plus, Ban, CheckCircle2, Pause, Calendar, Trash2,
-  Eye, Pencil, Loader2, ShieldCheck
+  Building2, Search, Ban, CheckCircle2, Pause, Calendar, Trash2,
+  Eye, Pencil, Loader2
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
@@ -12,10 +12,10 @@ import {
 
 const STATUS_CONFIG = {
   active: { label: 'Ativa', classes: 'bg-accent/10 text-accent-dark' },
-  trial: { label: 'Trial', classes: 'bg-blue-50 text-blue-600' },
-  overdue: { label: 'Em Atraso', classes: 'bg-orange-50 text-orange-600' },
-  blocked: { label: 'Bloqueada', classes: 'bg-red-50 text-red-600' },
-  pending_payment: { label: 'Pag. Pendente', classes: 'bg-yellow-50 text-yellow-600' },
+  trialing: { label: 'Trial', classes: 'bg-blue-50 text-blue-600' },
+  past_due: { label: 'Em Atraso', classes: 'bg-orange-50 text-orange-600' },
+  expired: { label: 'Expirada', classes: 'bg-red-50 text-red-600' },
+  pending: { label: 'Pag. Pendente', classes: 'bg-yellow-50 text-yellow-600' },
   suspended: { label: 'Suspensa', classes: 'bg-purple-100 text-purple-700' },
   cancelled: { label: 'Cancelada', classes: 'bg-gray-100 text-gray-500' },
 };
@@ -24,11 +24,6 @@ function formatDate(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('pt-BR');
 }
-function formatDateTime(dateStr) {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
 export default function Tenants() {
   const [tenants, setTenants] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -74,7 +69,7 @@ export default function Tenants() {
   const handleAction = async (tenant, action) => {
     setActionLoading(tenant.id + action);
     const updates = {
-      block: { subscription_status: 'blocked' },
+      block: { subscription_status: 'expired' },
       unblock: { subscription_status: 'active', is_suspended: false },
       suspend: { subscription_status: 'suspended', is_suspended: true },
       unsuspend: { subscription_status: 'active', is_suspended: false },
@@ -217,7 +212,7 @@ export default function Tenants() {
               {filtered.length === 0 ? (
                 <tr><td colSpan="6" className="py-8 text-center text-muted-foreground">Nenhuma farmácia encontrada.</td></tr>
               ) : filtered.map(t => {
-                const cfg = STATUS_CONFIG[t.subscription_status] || STATUS_CONFIG.trial;
+                const cfg = STATUS_CONFIG[t.subscription_status] || STATUS_CONFIG.trialing;
                 return (
                   <tr key={t.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
                     <td className="px-4 py-3">
@@ -232,7 +227,7 @@ export default function Tenants() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        {t.subscription_status === 'blocked' ? (
+                        {['expired', 'blocked'].includes(t.subscription_status) ? (
                           <ActionBtn icon={CheckCircle2} title="Desbloquear" color="accent" loading={actionLoading === t.id + 'unblock'} onClick={() => handleAction(t, 'unblock')} />
                         ) : (
                           <ActionBtn icon={Ban} title="Bloquear" color="red" loading={actionLoading === t.id + 'block'} onClick={() => handleAction(t, 'block')} />

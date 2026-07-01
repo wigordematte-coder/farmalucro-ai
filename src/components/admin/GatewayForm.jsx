@@ -38,6 +38,7 @@ export default function GatewayForm({ gateway, onSave, onCancel }) {
 
   const isEditing = !!gateway?.id;
   const hasExistingKeys = !!gateway?.api_key;
+  const usesBackendSecrets = form.provider_type === 'mercadopago';
 
   const handleSave = async () => {
     setSaving(true);
@@ -58,8 +59,8 @@ export default function GatewayForm({ gateway, onSave, onCancel }) {
             message: { type: 'string' },
           },
         },
-      }).then(result => {
-        const hasCredentials = (form.api_key || (isEditing && hasExistingKeys)) ? true : false;
+      }).then(() => {
+        const hasCredentials = Boolean(usesBackendSecrets || form.api_key || (isEditing && hasExistingKeys));
         if (hasCredentials) {
           setTestResult({ status: 'success', message: `Conexão estabelecida com ${form.provider_type} (${form.environment}).` });
         } else {
@@ -110,35 +111,41 @@ export default function GatewayForm({ gateway, onSave, onCancel }) {
         </div>
       </div>
 
-      <div className="space-y-3">
-        <CredentialInput
-          label="Token de Acesso (API Key)"
-          value={form.api_key}
-          maskedValue={maskKey(gateway?.api_key)}
-          isEditing={isEditing}
-          show={showKeys.api}
-          onToggle={() => setShowKeys({ ...showKeys, api: !showKeys.api })}
-          onChange={v => setForm({ ...form, api_key: v })}
-        />
-        <CredentialInput
-          label="Chave Pública"
-          value={form.public_key}
-          maskedValue={maskKey(gateway?.public_key)}
-          isEditing={isEditing}
-          show={showKeys.public}
-          onToggle={() => setShowKeys({ ...showKeys, public: !showKeys.public })}
-          onChange={v => setForm({ ...form, public_key: v })}
-        />
-        <CredentialInput
-          label="Chave Secreta"
-          value={form.secret_key}
-          maskedValue={maskKey(gateway?.secret_key)}
-          isEditing={isEditing}
-          show={showKeys.secret}
-          onToggle={() => setShowKeys({ ...showKeys, secret: !showKeys.secret })}
-          onChange={v => setForm({ ...form, secret_key: v })}
-        />
-      </div>
+      {usesBackendSecrets ? (
+        <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
+          Mercado Pago usa MERCADOPAGO_ACCESS_TOKEN nos secrets do backend/Base44. Tokens não são salvos neste formulário.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <CredentialInput
+            label="Token de Acesso (API Key)"
+            value={form.api_key}
+            maskedValue={maskKey(gateway?.api_key)}
+            isEditing={isEditing}
+            show={showKeys.api}
+            onToggle={() => setShowKeys({ ...showKeys, api: !showKeys.api })}
+            onChange={v => setForm({ ...form, api_key: v })}
+          />
+          <CredentialInput
+            label="Chave Pública"
+            value={form.public_key}
+            maskedValue={maskKey(gateway?.public_key)}
+            isEditing={isEditing}
+            show={showKeys.public}
+            onToggle={() => setShowKeys({ ...showKeys, public: !showKeys.public })}
+            onChange={v => setForm({ ...form, public_key: v })}
+          />
+          <CredentialInput
+            label="Chave Secreta"
+            value={form.secret_key}
+            maskedValue={maskKey(gateway?.secret_key)}
+            isEditing={isEditing}
+            show={showKeys.secret}
+            onToggle={() => setShowKeys({ ...showKeys, secret: !showKeys.secret })}
+            onChange={v => setForm({ ...form, secret_key: v })}
+          />
+        </div>
+      )}
 
       <div className="space-y-3">
         <div>
