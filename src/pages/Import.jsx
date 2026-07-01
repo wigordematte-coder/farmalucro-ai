@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import EmptyState from '@/components/EmptyState';
 import { formatCurrency } from '@/lib/pricing';
 import { useProducts } from '@/hooks/useProducts';
-import { withTenantId } from '@/lib/tenant';
+import { TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED_TYPES = '.xml,.pdf,.jpg,.jpeg,.png,.heic,image/*,application/pdf,text/xml,application/xml';
@@ -48,6 +48,10 @@ export default function Import() {
     setSaved(false);
 
     if (!file) return;
+    if (!tenantId) {
+      setError(TENANT_REQUIRED_MESSAGE);
+      return;
+    }
 
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const isXML = ext === 'xml' || file.type === 'text/xml' || file.type === 'application/xml';
@@ -70,7 +74,7 @@ export default function Import() {
       const fileUrl = uploadRes.file_url;
       const fileType = isXML ? 'xml' : isPDF ? 'pdf' : 'image';
 
-      const invoiceRecord = await base44.entities.Invoice.create(withTenantId({
+      const invoiceRecord = await base44.entities.Invoice.create(withRequiredTenantId({
         file_url: fileUrl,
         file_name: file.name,
         file_type: fileType,
@@ -121,7 +125,7 @@ export default function Import() {
         const unitProfit = selectedPrice - cost;
         const marginPct = selectedPrice > 0 ? ((selectedPrice - cost) / selectedPrice) * 100 : 0;
 
-        return withTenantId({
+        return withRequiredTenantId({
           name: item.name,
           manufacturer: item.manufacturer || '',
           category: item.category || '',

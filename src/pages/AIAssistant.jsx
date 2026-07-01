@@ -8,7 +8,7 @@ import { usePharmacy } from '@/lib/pharmacyContext';
 import { formatCurrency, calculatePotentialProfit, calculateInventoryValue, isExpiringSoon } from '@/lib/pricing';
 import { PHARMACY_BENCHMARKS } from '@/lib/constants';
 import { useUserRole } from '@/lib/roles';
-import { filterByTenant, withTenantId } from '@/lib/tenant';
+import { belongsToTenant, filterByTenant, TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const SUGGESTED_QUESTIONS = [
@@ -53,13 +53,18 @@ export default function AIAssistant() {
     if (!convId) return;
     try {
       if (roleLoading) return;
+      const conversation = conversations.find(conv => conv.id === convId);
+      if (!isSuperAdmin && !belongsToTenant(conversation, tenantId)) {
+        setMessages([]);
+        return;
+      }
       const list = await base44.entities.ChatMessage.filter({ conversation_id: convId }, '-created_date', 200);
       const tenantMessages = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
       setMessages(tenantMessages.reverse());
     } catch (e) {
       setMessages([]);
     }
-  }, [tenantId, isSuperAdmin, roleLoading]);
+  }, [conversations, tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { if (currentConvId) loadMessages(currentConvId); }, [currentConvId, loadMessages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -104,15 +109,25 @@ BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) =
   const handleSend = async (text) => {
     const question = text || input;
     if (!question.trim() || loading) return;
+    if (!tenantId) {
+      alert(TENANT_REQUIRED_MESSAGE);
+      return;
+    }
 
     let convId = currentConvId;
     if (!convId) {
       try {
-        const conv = await base44.entities.ChatConversation.create(withTenantId({ title: question.substring(0, 40) }, tenantId));
+        const conv = await base44.entities.ChatConversation.create(withRequiredTenantId({ title: question.substring(0, 40) }, tenantId));
         convId = conv.id;
         setCurrentConvId(convId);
         setConversations(prev => [conv, ...prev]);
       } catch (e) { return; }
+    } else {
+      const conversation = conversations.find(conv => conv.id === convId);
+      if (!belongsToTenant(conversation, tenantId)) {
+        alert('Esta conversa não pertence à empresa vinculada ao seu usuário.');
+        return;
+      }
     }
 
     const userMsg = { role: 'user', content: question, conversation_id: convId };
@@ -121,7 +136,7 @@ BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) =
     setLoading(true);
 
     try {
-      await base44.entities.ChatMessage.create(withTenantId({ conversation_id: convId, role: 'user', content: question }, tenantId));
+      await base44.entities.ChatMessage.create(withRequiredTenantId({ conversation_id: convId, role: 'user', content: question }, tenantId));
 
       const context = buildContext();
       const prompt = `Você é o "Consultor FarmaLucro AI", um especialista sênior em gestão farmacêutica com foco em lucratividade, precificação estratégica e giro de estoque.
@@ -151,7 +166,7 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
       const assistantMsg = { role: 'assistant', content: responseText, conversation_id: convId };
       setMessages(prev => [...prev, assistantMsg]);
 
-      await base44.entities.ChatMessage.create(withTenantId({ conversation_id: convId, role: 'assistant', content: responseText }, tenantId));
+      await base44.entities.ChatMessage.create(withRequiredTenantId({ conversation_id: convId, role: 'assistant', content: responseText }, tenantId));
       await base44.entities.ChatConversation.update(convId, { last_message: question.substring(0, 50) });
       loadConversations();
     } catch (e) {
@@ -169,7 +184,12 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
 
   const handleDeleteConversation = async (id) => {
     try {
-      await base44.entities.ChatMessage.deleteMany({ conversation_id: id });
+      const conversation = conversations.find(conv => conv.id === id);
+      if (!belongsToTenant(conversation, tenantId)) {
+        alert('Esta conversa não pertence à empresa vinculada ao seu usuário.');
+        return;
+      }
+      await base44.entities.ChatMessage.deleteMany({ conversation_id: id, tenant_id: tenantId });
       await base44.entities.ChatConversation.delete(id);
       if (currentConvId === id) { setCurrentConvId(null); setMessages([]); }
       loadConversations();

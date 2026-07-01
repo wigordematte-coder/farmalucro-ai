@@ -8,7 +8,7 @@ import { usePharmacy } from '@/lib/pharmacyContext';
 import { PROMOTION_TYPES } from '@/lib/constants';
 import { formatPercent } from '@/lib/pricing';
 import { useUserRole } from '@/lib/roles';
-import { filterByTenant, withTenantId } from '@/lib/tenant';
+import { filterByTenant, TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const ICONS = { Zap, PackagePlus, TrendingDown, Gift, Crown };
@@ -42,6 +42,10 @@ export default function Promotions() {
 
   const handleAutoGenerate = async () => {
     if (eligibleProducts.length === 0) return;
+    if (!tenantId) {
+      alert(TENANT_REQUIRED_MESSAGE);
+      return;
+    }
     setGenerating(true);
     try {
       const selected = eligibleProducts.slice(0, 5);
@@ -50,7 +54,7 @@ export default function Promotions() {
       const impactMargin = idealMargin - discount;
       const productNames = selected.map(p => p.name);
 
-      await base44.entities.Promotion.create(withTenantId({
+      await base44.entities.Promotion.create(withRequiredTenantId({
         name: 'Oferta Relâmpago — Liquidação de Estoque',
         type: 'flash_offer',
         product_names: productNames,
@@ -259,9 +263,13 @@ function PromotionForm({ products, settings, tenantId, onClose, onSaved }) {
 
   const handleSubmit = async () => {
     if (!form.name || form.product_names.length === 0) return;
+    if (!tenantId) {
+      alert(TENANT_REQUIRED_MESSAGE);
+      return;
+    }
     setSaving(true);
     try {
-      await base44.entities.Promotion.create(withTenantId({
+      await base44.entities.Promotion.create(withRequiredTenantId({
         ...form,
         impact_margin: impactMargin,
         discount: Number(form.discount),

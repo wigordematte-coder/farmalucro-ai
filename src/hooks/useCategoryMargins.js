@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useUserRole } from '@/lib/roles';
-import { filterByTenant, withTenantId } from '@/lib/tenant';
+import { filterByTenant, withRequiredTenantId } from '@/lib/tenant';
 
 const DEFAULT_CATEGORY_MARGINS = [
   { category: 'Medicamentos', margin_pct: 25 },
@@ -25,8 +25,10 @@ export function useCategoryMargins() {
       const tenantMargins = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
       if (tenantMargins && tenantMargins.length > 0) {
         setMargins(tenantMargins);
+      } else if (!tenantId) {
+        setMargins([]);
       } else {
-        const defaults = DEFAULT_CATEGORY_MARGINS.map(margin => withTenantId(margin, tenantId));
+        const defaults = DEFAULT_CATEGORY_MARGINS.map(margin => withRequiredTenantId(margin, tenantId));
         const created = await base44.entities.CategoryMargin.bulkCreate(defaults);
         setMargins(created || DEFAULT_CATEGORY_MARGINS);
       }
@@ -48,10 +50,10 @@ export function useCategoryMargins() {
 
   const createMargin = useCallback(async (category, margin_pct) => {
     try {
-      const created = await base44.entities.CategoryMargin.create(withTenantId({ category, margin_pct }, tenantId));
+      const created = await base44.entities.CategoryMargin.create(withRequiredTenantId({ category, margin_pct }, tenantId));
       setMargins(prev => [...prev, created]);
       return created;
-    } catch (e) { return null; }
+    } catch (e) { throw e; }
   }, [tenantId]);
 
   const deleteMargin = useCallback(async (id) => {

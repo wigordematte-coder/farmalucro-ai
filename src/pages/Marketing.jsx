@@ -5,7 +5,7 @@ import EmptyState from '@/components/EmptyState';
 import { useProducts } from '@/hooks/useProducts';
 import { formatCurrency } from '@/lib/pricing';
 import { useUserRole } from '@/lib/roles';
-import { filterByTenant, withTenantId } from '@/lib/tenant';
+import { filterByTenant, TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const CHANNELS = [
@@ -38,6 +38,15 @@ export default function Marketing() {
 
   const handleGenerate = async () => {
     if (!selectedProduct) return;
+    if (!tenantId) {
+      setGenerated({
+        title: 'Empresa não identificada',
+        caption: TENANT_REQUIRED_MESSAGE,
+        hashtags: '',
+        cta: '',
+      });
+      return;
+    }
     setGenerating(true);
     setGenerated(null);
     try {
@@ -71,7 +80,7 @@ Retorne em JSON com os campos: title, caption, hashtags, cta.`;
 
       setGenerated(result);
 
-      await base44.entities.MarketingContent.create(withTenantId({
+      await base44.entities.MarketingContent.create(withRequiredTenantId({
         channel,
         product_name: selectedProduct.name,
         title: result.title || '',

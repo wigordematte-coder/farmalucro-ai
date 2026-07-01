@@ -6,7 +6,7 @@ import ABCBadge from '@/components/ABCBadge';
 import EmptyState from '@/components/EmptyState';
 import { useProducts } from '@/hooks/useProducts';
 import { calculateProductMetrics, formatCurrency, formatPercent, isExpiringSoon } from '@/lib/pricing';
-import { withTenantId } from '@/lib/tenant';
+import { withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 export default function Products() {
@@ -37,13 +37,13 @@ export default function Products() {
       if (editingProduct?.id) {
         await base44.entities.Product.update(editingProduct.id, data);
       } else {
-        await base44.entities.Product.create(withTenantId(data, tenantId));
+        await base44.entities.Product.create(withRequiredTenantId(data, tenantId));
       }
       setShowForm(false);
       setEditingProduct(null);
       reloadProducts();
     } catch (e) {
-      alert('Erro ao salvar produto');
+      alert(e?.message || 'Erro ao salvar produto');
     }
   };
 

@@ -5,7 +5,7 @@ import { useSubscription, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUSES } from '@/lib
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { formatCurrency } from '@/lib/pricing';
 import { useUserRole } from '@/lib/roles';
-import { filterByTenant, withTenantId } from '@/lib/tenant';
+import { filterByTenant, TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 import StatusBadge from '@/components/subscription/StatusBadge';
 import PlanDetails from '@/components/subscription/PlanDetails';
@@ -53,6 +53,11 @@ export default function Subscription() {
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
   const handlePaymentConfirm = async (cardData) => {
+    if (!tenantId) {
+      alert(TENANT_REQUIRED_MESSAGE);
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0];
     const nextMonth = new Date();
     if (subscription?.status === 'active' && subscription?.next_billing_date) {
@@ -79,7 +84,7 @@ export default function Subscription() {
 
     await updateSubscription(updateData);
 
-    await base44.entities.Payment.create(withTenantId({
+    await base44.entities.Payment.create(withRequiredTenantId({
       amount: SUBSCRIPTION_PLAN.price,
       method: selectedMethod,
       status: 'paid',

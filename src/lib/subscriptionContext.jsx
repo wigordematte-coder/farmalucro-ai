@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useUserRole } from '@/lib/roles';
-import { filterByTenant, withTenantId } from '@/lib/tenant';
+import { filterByTenant, withRequiredTenantId } from '@/lib/tenant';
 
 const SubscriptionContext = createContext(null);
 
@@ -117,10 +117,14 @@ export function SubscriptionProvider({ children }) {
         }
         return;
       }
+      if (!tenantId) {
+        setSubscription(null);
+        return;
+      }
       const trialStart = new Date();
       const trialEnd = new Date();
       trialEnd.setDate(trialEnd.getDate() + 14);
-      const created = await base44.entities.Subscription.create(withTenantId({
+      const created = await base44.entities.Subscription.create(withRequiredTenantId({
         plan_name: SUBSCRIPTION_PLAN.name,
         plan_price: SUBSCRIPTION_PLAN.price,
         billing_cycle: 'monthly',

@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Settings2, Plus, Trash2, Save, Loader2 } from 'lucide-react';
+import { Settings2, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 
 export default function CategoryMarginsConfig({ margins, onUpdate, onCreate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
@@ -13,10 +12,15 @@ export default function CategoryMarginsConfig({ margins, onUpdate, onCreate, onD
   const handleCreate = async () => {
     if (!newCategory.trim()) return;
     setCreating(true);
-    await onCreate(newCategory.trim(), Number(newMargin));
-    setNewCategory('');
-    setNewMargin(30);
-    setCreating(false);
+    try {
+      await onCreate(newCategory.trim(), Number(newMargin));
+      setNewCategory('');
+      setNewMargin(30);
+    } catch (e) {
+      alert(e?.message || 'Erro ao criar margem por categoria');
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
