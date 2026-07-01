@@ -48,6 +48,7 @@ export const SUPER_ADMIN_NAV = [
   { label: 'Logs', path: '/admin/logs', icon: 'ScrollText' },
   { label: 'Suporte', path: '/admin/suporte', icon: 'Users' },
   { label: 'Configurações Globais', path: '/admin/configuracoes', icon: 'Settings' },
+  { label: 'Mercado Pago', path: '/admin/mercadopago', icon: 'Wallet' },
 ];
 
 export function getNavForRole(appRole) {

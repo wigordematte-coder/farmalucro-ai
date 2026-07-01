@@ -37,6 +37,7 @@ import Plans from '@/pages/superadmin/Plans';
 import SuperAdminUsers from '@/pages/superadmin/Users';
 import AuditLogs from '@/pages/superadmin/AuditLogs';
 import GlobalSettingsPage from '@/pages/superadmin/GlobalSettings';
+import MercadoPagoSettings from '@/pages/superadmin/MercadoPagoSettings';
 
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
@@ -114,6 +115,7 @@ const AuthenticatedApp = () => {
               <Route path="/admin/planos" element={<Plans />} />
               <Route path="/admin/usuarios" element={<SuperAdminUsers />} />
               <Route path="/admin/suporte" element={<Support />} />
+              <Route path="/admin/mercadopago" element={<MercadoPagoSettings />} />
             </Route>
             <Route path="*" element={<PageNotFound />} />
           </Routes>

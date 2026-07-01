@@ -8,8 +8,7 @@ import { cn } from '@/lib/utils';
 import StatusBadge from '@/components/subscription/StatusBadge';
 import PlanDetails from '@/components/subscription/PlanDetails';
 import PaymentMethodSelector from '@/components/subscription/PaymentMethodSelector';
-import PixPayment from '@/components/subscription/PixPayment';
-import CreditCardForm from '@/components/subscription/CreditCardForm';
+import MercadoPagoCheckout from '@/components/subscription/MercadoPagoCheckout';
 import PaymentHistory from '@/components/subscription/PaymentHistory';
 import BillingInfoForm from '@/components/subscription/BillingInfoForm';
 import {
@@ -281,17 +280,12 @@ export default function Subscription() {
 
           {!selectedMethod ? (
             <PaymentMethodSelector value={null} onChange={setSelectedMethod} />
-          ) : selectedMethod === 'pix' ? (
-            <PixPayment
-              amount={SUBSCRIPTION_PLAN.price}
-              onConfirm={handlePaymentConfirm}
-              onBack={() => setSelectedMethod(null)}
-            />
           ) : (
-            <CreditCardForm
-              amount={SUBSCRIPTION_PLAN.price}
+            <MercadoPagoCheckout
+              selectedMethod={selectedMethod}
               onConfirm={handlePaymentConfirm}
               onBack={() => setSelectedMethod(null)}
+              loading={false}
             />
           )}
         </DialogContent>
