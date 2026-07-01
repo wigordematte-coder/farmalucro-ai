@@ -12,8 +12,15 @@
         "payment_approved",
         "payment_declined",
         "payment_pending",
+        "payment_expired",
         "refund",
-        "cancellation"
+        "cancellation",
+        "subscription_authorized",
+        "subscription_pending",
+        "payment_unknown",
+        "unknown",
+        "validation_failed",
+        "processed"
       ],
       "title": "Tipo de Evento"
     },

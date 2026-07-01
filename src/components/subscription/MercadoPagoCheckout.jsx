@@ -16,7 +16,9 @@ export default function MercadoPagoCheckout({ selectedMethod, onConfirm, onBack,
             {isPix ? 'Pagamento via PIX' : 'Pagamento com cartão'}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Você será redirecionado para o checkout seguro do Mercado Pago. A assinatura só será ativada após confirmação do webhook.
+            {isPix
+              ? 'PIX confirma este ciclo manualmente. A renovação mensal precisará de novo pagamento, e a liberação só ocorre após webhook.'
+              : 'Você será redirecionado para a assinatura recorrente do Mercado Pago. A liberação só ocorre após webhook.'}
           </p>
         </div>
         <div className="bg-accent/10 rounded-xl p-3 text-sm text-accent font-semibold">

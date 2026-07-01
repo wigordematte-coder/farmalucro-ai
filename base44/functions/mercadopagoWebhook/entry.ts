@@ -6,10 +6,77 @@ function addMonth(date: Date) {
   return next.toISOString().split('T')[0];
 }
 
+const PLAN_NAME = 'FarmaLucro AI Profissional';
+const PLAN_PRICE = 197;
+
 function getNotificationData(body: Record<string, any>) {
   const topic = body.topic || body.type || body.action;
   const resourceId = body.data?.id || body.resource?.split('/').pop() || body.id;
   return { topic, resourceId };
+}
+
+function parseSignature(header: string) {
+  return Object.fromEntries(
+    header.split(',').map(part => {
+      const [key, value] = part.split('=');
+      return [key?.trim(), value?.trim()];
+    }).filter(([key, value]) => key && value)
+  );
+}
+
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+async function hmacSha256Hex(secret: string, message: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+  return Array.from(new Uint8Array(signature)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function validateMercadoPagoSignature(req: Request, body: Record<string, any>) {
+  const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET');
+  if (!webhookSecret) return { ok: false, status: 500, error: 'Mercado Pago webhook secret not configured' };
+
+  const signatureHeader = req.headers.get('x-signature') || '';
+  const requestId = req.headers.get('x-request-id') || '';
+  const signature = parseSignature(signatureHeader);
+  const ts = signature.ts;
+  const v1 = signature.v1;
+  if (!requestId || !ts || !v1) return { ok: false, status: 401, error: 'Invalid webhook signature headers' };
+
+  const url = new URL(req.url);
+  const dataId = url.searchParams.get('data.id') || body.data?.id || body.id || '';
+  const manifest = dataId
+    ? `id:${dataId};request-id:${requestId};ts:${ts};`
+    : `request-id:${requestId};ts:${ts};`;
+  const expected = await hmacSha256Hex(webhookSecret, manifest);
+  if (!timingSafeEqual(expected, v1)) return { ok: false, status: 403, error: 'Invalid webhook signature' };
+
+  return { ok: true };
+}
+
+async function clearStoredMercadoPagoSecrets(base44: any) {
+  const gateways = await base44.asServiceRole.entities.PaymentGateway.filter({ provider_type: 'mercadopago' });
+  await Promise.all((gateways || [])
+    .filter((gateway: any) => gateway.api_key || gateway.public_key || gateway.secret_key)
+    .map((gateway: any) => base44.asServiceRole.entities.PaymentGateway.update(gateway.id, {
+      api_key: '',
+      public_key: '',
+      secret_key: '',
+    }).catch(() => {})));
 }
 
 function mapPaymentStatus(status: string) {
@@ -32,12 +99,28 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Mercado Pago access token not configured' }, { status: 500 });
     }
 
-    const base44 = createClientFromRequest(req);
     const body = await req.json();
+    const signatureValidation = await validateMercadoPagoSignature(req, body);
+    if (!signatureValidation.ok) {
+      return Response.json({ error: signatureValidation.error }, { status: signatureValidation.status });
+    }
+
+    const base44 = createClientFromRequest(req);
+    await clearStoredMercadoPagoSecrets(base44);
+
     const { topic, resourceId } = getNotificationData(body);
 
     if (!topic || !resourceId) {
       return Response.json({ received: true }, { status: 200 });
+    }
+
+    const eventKey = `${topic}_${body.id || body.data?.id || resourceId}`;
+    const previousEvents = await base44.asServiceRole.entities.WebhookEvent.filter({
+      gateway_name: 'mercadopago',
+      transaction_id: eventKey,
+    });
+    if (previousEvents?.some((event: any) => event.processed)) {
+      return Response.json({ received: true, duplicate: true }, { status: 200 });
     }
 
     let mpData: any = null;
@@ -54,6 +137,7 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       mpData = await mpRes.json();
+      if (!mpRes.ok) return Response.json({ received: false, error: 'Unable to fetch Mercado Pago payment' }, { status: 502 });
       amount = mpData.transaction_amount || 0;
       clientEmail = mpData.payer?.email || '';
       tenantId = mpData.metadata?.tenant_id || mpData.external_reference || '';
@@ -68,6 +152,7 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       mpData = await mpRes.json();
+      if (!mpRes.ok) return Response.json({ received: false, error: 'Unable to fetch Mercado Pago preapproval' }, { status: 502 });
       clientEmail = mpData.payer_email || '';
       tenantId = mpData.metadata?.tenant_id || mpData.external_reference || '';
       amount = mpData.auto_recurring?.transaction_amount || 0;
@@ -89,10 +174,10 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.WebhookEvent.create({
       gateway_name: 'mercadopago',
       event_type: eventType,
-      transaction_id: String(resourceId),
+      transaction_id: eventKey,
       status: mpData?.status || String(topic),
       payload: JSON.stringify({ body, tenant_id: tenantId }),
-      processed: Boolean(tenantId),
+      processed: false,
     });
 
     if (mpData) {
@@ -118,6 +203,40 @@ Deno.serve(async (req) => {
     const sub = subscriptions?.[0];
     if (!sub?.id) {
       return Response.json({ received: true, warning: 'Subscription not found for tenant' }, { status: 200 });
+    }
+
+    if (subscriptionStatus === 'active') {
+      const metadata = mpData?.metadata || {};
+      const metadataSubscriptionId = metadata.subscription_id;
+      const metadataPlanName = metadata.plan_name;
+      const currency = mpData.currency_id || mpData.auto_recurring?.currency_id;
+      const isApproved = mpData.status === 'approved' || mpData.status === 'authorized';
+      const amountMatches = Number(amount) === PLAN_PRICE;
+      const tenantMatches = Boolean(tenantId && sub.tenant_id === tenantId);
+      const subscriptionMatches = Boolean(metadataSubscriptionId && metadataSubscriptionId === sub.id);
+      const planMatches = metadataPlanName === PLAN_NAME;
+      const currencyMatches = currency === 'BRL';
+
+      if (!tenantMatches || !subscriptionMatches || !planMatches || !amountMatches || !currencyMatches || !isApproved) {
+        await base44.asServiceRole.entities.WebhookEvent.create({
+          gateway_name: 'mercadopago',
+          event_type: 'validation_failed',
+          transaction_id: `${eventKey}_validation_failed`,
+          status: mpData?.status || String(topic),
+          payload: JSON.stringify({
+            tenantMatches,
+            subscriptionMatches,
+            planMatches,
+            amountMatches,
+            currencyMatches,
+            isApproved,
+            tenant_id: tenantId,
+            subscription_id: metadataSubscriptionId,
+          }),
+          processed: false,
+        });
+        return Response.json({ received: true, warning: 'Activation validation failed' }, { status: 200 });
+      }
     }
 
     const today = new Date();
@@ -148,17 +267,29 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.Tenant.update(tenantId, tenantUpdate).catch(() => {});
 
     if (paymentStatus === 'paid' && amount > 0) {
-      await base44.asServiceRole.entities.Payment.create({
-        tenant_id: tenantId,
-        amount,
-        method,
-        status: 'paid',
-        payment_date: todayIso,
-        due_date: todayIso,
-        transaction_id: String(resourceId),
-        description: 'Assinatura FarmaLucro AI - Mercado Pago',
-      });
+      const existingPayments = await base44.asServiceRole.entities.Payment.filter({ transaction_id: String(resourceId), tenant_id: tenantId });
+      if (!existingPayments?.length) {
+        await base44.asServiceRole.entities.Payment.create({
+          tenant_id: tenantId,
+          amount,
+          method,
+          status: 'paid',
+          payment_date: todayIso,
+          due_date: todayIso,
+          transaction_id: String(resourceId),
+          description: 'Assinatura FarmaLucro AI - Mercado Pago',
+        });
+      }
     }
+
+    await base44.asServiceRole.entities.WebhookEvent.create({
+      gateway_name: 'mercadopago',
+      event_type: 'processed',
+      transaction_id: eventKey,
+      status: mpData?.status || String(topic),
+      payload: JSON.stringify({ tenant_id: tenantId, subscription_id: sub.id }),
+      processed: true,
+    });
 
     return Response.json({ received: true }, { status: 200 });
   } catch (error) {

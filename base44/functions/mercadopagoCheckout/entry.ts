@@ -9,6 +9,17 @@ function addMonth(date: Date) {
   return next.toISOString().split('T')[0];
 }
 
+async function clearStoredMercadoPagoSecrets(base44: any) {
+  const gateways = await base44.asServiceRole.entities.PaymentGateway.filter({ provider_type: 'mercadopago' });
+  await Promise.all((gateways || [])
+    .filter((gateway: any) => gateway.api_key || gateway.public_key || gateway.secret_key)
+    .map((gateway: any) => base44.asServiceRole.entities.PaymentGateway.update(gateway.id, {
+      api_key: '',
+      public_key: '',
+      secret_key: '',
+    }).catch(() => {})));
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method !== 'POST') {
@@ -27,6 +38,7 @@ Deno.serve(async (req) => {
     if (!tenantId) {
       return Response.json({ error: 'Tenant not found for authenticated user' }, { status: 403 });
     }
+    await clearStoredMercadoPagoSecrets(base44);
 
     const { method = 'credit_card' } = await req.json().catch(() => ({}));
     const paymentMethod = method === 'pix' ? 'pix' : 'credit_card';
@@ -106,7 +118,7 @@ Deno.serve(async (req) => {
     const today = new Date();
     await base44.asServiceRole.entities.Subscription.update(subscription.id, {
       status: 'pending',
-      payment_method: method,
+      payment_method: paymentMethod,
       next_billing_date: subscription.next_billing_date || addMonth(today),
     });
     await base44.asServiceRole.entities.Tenant.update(tenantId, {

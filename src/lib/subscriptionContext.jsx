@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { base44 } from '@/api/base44Client';
 import { useUserRole } from '@/lib/roles';
 import { filterByTenant, withRequiredTenantId } from '@/lib/tenant';
+import { CRITICAL_ROUTES, evaluateSubscriptionEntitlement } from '@/lib/entitlements';
 
 const SubscriptionContext = createContext(null);
 
@@ -31,12 +32,7 @@ export const SUBSCRIPTION_STATUSES = {
   expired: { label: 'Expirada', color: 'red', badge: 'bg-red-500 text-white', dot: 'bg-red-500' },
 };
 
-export const RESTRICTED_ROUTES = [
-  '/importacao',
-  '/consultor-ia',
-  '/relatorios',
-  '/precificacao',
-];
+export const RESTRICTED_ROUTES = CRITICAL_ROUTES;
 
 export function getTrialDaysRemaining(trialEndDate) {
   if (!trialEndDate) return 0;
@@ -47,17 +43,6 @@ export function getTrialDaysRemaining(trialEndDate) {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-function normalizeStatus(status) {
-  const legacy = {
-    trial: 'trialing',
-    pending_subscription: 'pending',
-    pending_payment: 'pending',
-    overdue: 'past_due',
-    blocked: 'expired',
-  };
-  return legacy[status] || status;
-}
-
 export function SubscriptionProvider({ children }) {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,35 +50,8 @@ export function SubscriptionProvider({ children }) {
 
   const evaluateStatus = useCallback((sub) => {
     if (!sub) return null;
-    const normalizedStatus = normalizeStatus(sub.status);
-    if (['cancelled', 'expired'].includes(normalizedStatus)) return { ...sub, status: normalizedStatus };
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let updated = { ...sub, status: normalizedStatus };
-
-    if (sub.status === 'trialing' && sub.trial_end_date) {
-      const trialEnd = new Date(sub.trial_end_date + 'T00:00:00');
-      if (trialEnd < today) {
-        updated.status = 'pending';
-        updated.next_billing_date = updated.next_billing_date || sub.trial_end_date;
-      }
-    }
-
-    if (['active', 'pending', 'past_due'].includes(updated.status) && updated.next_billing_date) {
-      const nextBilling = new Date(updated.next_billing_date + 'T00:00:00');
-      if (nextBilling < today) {
-        const threeDaysAfter = new Date(nextBilling);
-        threeDaysAfter.setDate(threeDaysAfter.getDate() + 3);
-        if (threeDaysAfter < today) {
-          updated.status = 'expired';
-        } else {
-          updated.status = 'past_due';
-        }
-      }
-    }
-
-    return updated;
+    const entitlement = evaluateSubscriptionEntitlement(sub);
+    return { ...sub, status: entitlement.status };
   }, []);
 
   const loadSubscription = useCallback(async () => {
@@ -104,9 +62,8 @@ export function SubscriptionProvider({ children }) {
       if (tenantSubscriptions && tenantSubscriptions.length > 0) {
         let sub = tenantSubscriptions[0];
         const evaluated = evaluateStatus(sub);
+        setSubscription(evaluated);
         if (evaluated.status !== sub.status) {
-          const updated = await base44.entities.Subscription.update(sub.id, { status: evaluated.status });
-          setSubscription(updated);
           if (['past_due', 'expired', 'pending'].includes(evaluated.status) && sub.billing_email) {
             const email = sub.billing_email;
             const subject = evaluated.status === 'expired'
@@ -123,8 +80,6 @@ export function SubscriptionProvider({ children }) {
               base44.integrations.Core.SendEmail({ to: email, subject, body }).catch(() => {});
             }
           }
-        } else {
-          setSubscription(sub);
         }
         return;
       }
@@ -156,32 +111,56 @@ export function SubscriptionProvider({ children }) {
     loadSubscription();
   }, [loadSubscription]);
 
-  const updateSubscription = useCallback(async (data) => {
+  const updateBillingInfo = useCallback(async (data) => {
     if (!subscription?.id) return;
     try {
-      const updated = await base44.entities.Subscription.update(subscription.id, data);
-      setSubscription(updated);
-      return updated;
+      const res = await fetch('/api/functions/subscriptionSelfService', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_billing', data }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Erro ao atualizar dados de cobrança.');
+      setSubscription(payload.subscription);
+      return payload.subscription;
     } catch {
       return null;
     }
   }, [subscription]);
+
+  const cancelSubscription = useCallback(async () => {
+    try {
+      const res = await fetch('/api/functions/subscriptionSelfService', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Erro ao cancelar assinatura.');
+      setSubscription(payload.subscription);
+      return payload.subscription;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const reloadSubscription = useCallback(() => {
     setLoading(true);
     loadSubscription();
   }, [loadSubscription]);
 
-  const trialDaysRemaining = subscription?.status === 'trialing' ? getTrialDaysRemaining(subscription.trial_end_date) : 0;
-  const isTrialExpired = subscription?.status === 'pending';
-  const isBlocked = ['past_due', 'cancelled', 'expired'].includes(subscription?.status);
-  const isRestricted = isTrialExpired || isBlocked;
+  const entitlement = evaluateSubscriptionEntitlement(subscription);
+  const trialDaysRemaining = entitlement.status === 'trialing' ? getTrialDaysRemaining(subscription?.trial_end_date) : 0;
+  const isTrialExpired = entitlement.isTrialExpired;
+  const isBlocked = entitlement.isBlocked;
+  const isRestricted = entitlement.isRestricted;
 
   return (
     <SubscriptionContext.Provider value={{
       subscription,
       loading,
-      updateSubscription,
+      updateBillingInfo,
+      cancelSubscription,
       reloadSubscription,
       evaluateStatus,
       trialDaysRemaining,
@@ -200,7 +179,8 @@ export function useSubscription() {
     return {
       subscription: null,
       loading: false,
-      updateSubscription: async () => {},
+      updateBillingInfo: async () => {},
+      cancelSubscription: async () => {},
       reloadSubscription: () => {},
       trialDaysRemaining: 0,
       isTrialExpired: false,

@@ -7,8 +7,9 @@ import TrialBanner from '@/components/TrialBanner';
 import BlockedScreen from '@/components/subscription/BlockedScreen';
 import AwaitingSubscription from '@/components/AwaitingSubscription';
 import { usePharmacy } from '@/lib/pharmacyContext';
-import { useSubscription, RESTRICTED_ROUTES } from '@/lib/subscriptionContext';
+import { useSubscription } from '@/lib/subscriptionContext';
 import { useUserRole } from '@/lib/roles';
+import { isCriticalRoute } from '@/lib/entitlements';
 import { cn } from '@/lib/utils';
 
 export default function Layout({ children }) {
@@ -21,9 +22,7 @@ export default function Layout({ children }) {
   const isAdminRoute = location.pathname.startsWith('/admin');
   const accessDenied = isAdminRoute && !isSuperAdmin;
 
-  const isRestrictedRoute = !isAdmin && isRestricted && RESTRICTED_ROUTES.some(route =>
-    location.pathname === route || location.pathname.startsWith(route + '/')
-  );
+  const isRestrictedRoute = !isAdmin && isRestricted && isCriticalRoute(location.pathname);
 
   const allowRoutes = ['/assinatura', '/configuracoes', '/perfil'];
   const showBlocked = isBlocked && !allowRoutes.includes(location.pathname) && !isAdminRoute;

@@ -27,7 +27,7 @@ function formatDate(dateStr) {
 }
 
 export default function Subscription() {
-  const { subscription, loading, updateSubscription } = useSubscription();
+  const { subscription, loading, updateBillingInfo, cancelSubscription } = useSubscription();
   const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
   const [payments, setPayments] = useState([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
@@ -80,19 +80,13 @@ export default function Subscription() {
 
   const handleCancel = async () => {
     setCancelling(true);
-    const today = new Date().toISOString().split('T')[0];
-    await updateSubscription({
-      status: 'cancelled',
-      cancelled_date: today,
-      auto_renew: false,
-      cancellation_reason: 'Cancelado pelo usuário',
-    });
+    await cancelSubscription();
     setCancelling(false);
     setCancelDialog(false);
   };
 
   const handleBillingSave = async (formData) => {
-    await updateSubscription(formData);
+    await updateBillingInfo(formData);
   };
 
   if (loading) {
@@ -186,7 +180,7 @@ export default function Subscription() {
             )}
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" /> Renovação automática
+                <RefreshCw className="w-4 h-4" /> {subscription?.payment_method === 'pix' ? 'PIX manual por ciclo' : 'Renovação automática'}
               </span>
               <span className={cn("text-sm font-medium", subscription?.auto_renew ? "text-accent" : "text-muted-foreground")}>
                 {subscription?.auto_renew ? 'Ativada' : 'Desativada'}

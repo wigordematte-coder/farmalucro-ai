@@ -24,7 +24,18 @@ export default function FinancialSettings() {
   const loadGateways = useCallback(async () => {
     try {
       const list = await base44.entities.PaymentGateway.list('-created_date', 100);
-      setGateways(list || []);
+      const sanitized = (list || []).map(gateway => {
+        if (gateway.provider_type !== 'mercadopago') return gateway;
+        if (gateway.api_key || gateway.public_key || gateway.secret_key) {
+          base44.entities.PaymentGateway.update(gateway.id, {
+            api_key: '',
+            public_key: '',
+            secret_key: '',
+          }).catch(() => {});
+        }
+        return { ...gateway, api_key: '', public_key: '', secret_key: '' };
+      });
+      setGateways(sanitized);
     } catch {
       setGateways([]);
     } finally {
@@ -60,14 +71,17 @@ export default function FinancialSettings() {
     try {
       const sanitizedFormData = { ...formData };
       if (sanitizedFormData.provider_type === 'mercadopago') {
-        delete sanitizedFormData.api_key;
-        delete sanitizedFormData.public_key;
-        delete sanitizedFormData.secret_key;
+        sanitizedFormData.api_key = '';
+        sanitizedFormData.public_key = '';
+        sanitizedFormData.secret_key = '';
       }
       if (editingGateway?.id) {
         const updateData = { ...sanitizedFormData };
         Object.keys(updateData).forEach(k => {
-          if (typeof updateData[k] === 'string' && updateData[k] === '' && ['api_key', 'public_key', 'secret_key'].includes(k)) {
+          if (updateData.provider_type !== 'mercadopago' &&
+              typeof updateData[k] === 'string' &&
+              updateData[k] === '' &&
+              ['api_key', 'public_key', 'secret_key'].includes(k)) {
             delete updateData[k];
           }
         });

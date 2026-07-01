@@ -11,6 +11,7 @@ import { SubscriptionProvider } from '@/lib/subscriptionContext';
 import { GlobalSettingsProvider } from '@/lib/globalSettingsContext';
 import Layout from '@/components/Layout';
 import RoleGuard from '@/components/RoleGuard';
+import RequireEntitlement from '@/components/RequireEntitlement';
 
 import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
@@ -104,11 +105,11 @@ const AuthenticatedApp = () => {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Home />} />
-              <Route path="/importacao" element={<Import />} />
+              <Route path="/importacao" element={<RequireEntitlement path="/importacao"><Import /></RequireEntitlement>} />
               <Route path="/produtos" element={<Products />} />
-              <Route path="/precificacao" element={withRole(<Precificacao />, ['pharmacy_admin', 'pharmacist'])} />
-              <Route path="/consultor-ia" element={withRole(<AIAssistant />, ['pharmacy_admin', 'pharmacist'])} />
-              <Route path="/relatorios" element={withRole(<Reports />, ['pharmacy_admin', 'pharmacist'])} />
+              <Route path="/precificacao" element={withRole(<RequireEntitlement path="/precificacao"><Precificacao /></RequireEntitlement>, ['pharmacy_admin', 'pharmacist'])} />
+              <Route path="/consultor-ia" element={withRole(<RequireEntitlement path="/consultor-ia"><AIAssistant /></RequireEntitlement>, ['pharmacy_admin', 'pharmacist'])} />
+              <Route path="/relatorios" element={withRole(<RequireEntitlement path="/relatorios"><Reports /></RequireEntitlement>, ['pharmacy_admin', 'pharmacist'])} />
               <Route path="/resultados" element={withRole(<Results />, ['pharmacy_admin', 'pharmacist'])} />
               <Route path="/configuracoes" element={withRole(<Settings />, ['pharmacy_admin'])} />
               <Route path="/assinatura" element={withRole(<Subscription />, ['pharmacy_admin'])} />
