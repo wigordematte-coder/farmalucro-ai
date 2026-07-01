@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText,
   Settings, CreditCard, Users, Globe, Building2, DollarSign, Wallet, Layers, ScrollText,
-  Boxes, ShoppingCart, TrendingUp, User
+  Boxes, ShoppingCart, TrendingUp, User, Trophy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUserRole, getNavForRole } from '@/lib/roles';
@@ -10,7 +10,7 @@ import { useUserRole, getNavForRole } from '@/lib/roles';
 const ICONS = {
   LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText,
   Settings, CreditCard, Users, Globe, Building2, DollarSign, Wallet, Layers, ScrollText,
-  Boxes, ShoppingCart, TrendingUp, User,
+  Boxes, ShoppingCart, TrendingUp, User, Trophy,
 };
 
 export default function MobileNav() {

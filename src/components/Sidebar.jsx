@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText,
   Settings, CreditCard, Users, Globe, Building2, DollarSign, Wallet, Layers,
-  ScrollText, X, ShieldCheck, Boxes, ShoppingCart, TrendingUp, User
+  ScrollText, X, ShieldCheck, Boxes, ShoppingCart, TrendingUp, User, Trophy
 } from 'lucide-react';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { useSubscription, SUBSCRIPTION_STATUSES } from '@/lib/subscriptionContext';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 const ICONS = {
   LayoutDashboard, Package, FileUp, BarChart3, Bot, Tag, Megaphone, FileText,
   Settings, CreditCard, Users, Globe, Building2, DollarSign, Wallet, Layers, ScrollText,
-  Boxes, ShoppingCart, TrendingUp, User,
+  Boxes, ShoppingCart, TrendingUp, User, Trophy,
 };
 
 export default function Sidebar({ isOpen, onClose }) {

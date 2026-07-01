@@ -26,6 +26,7 @@ import Settings from '@/pages/Settings';
 import Subscription from '@/pages/Subscription';
 import Precificacao from '@/pages/Precificacao';
 import Perfil from '@/pages/Perfil';
+import Results from '@/pages/Results';
 import AdminPanel from '@/pages/AdminPanel';
 import Tenants from '@/pages/superadmin/Tenants';
 import Subscriptions from '@/pages/superadmin/Subscriptions';
@@ -99,6 +100,7 @@ const AuthenticatedApp = () => {
               <Route path="/precificacao" element={<Precificacao />} />
               <Route path="/consultor-ia" element={<AIAssistant />} />
               <Route path="/relatorios" element={<Reports />} />
+              <Route path="/resultados" element={<Results />} />
               <Route path="/configuracoes" element={<Settings />} />
               <Route path="/assinatura" element={<Subscription />} />
               <Route path="/perfil" element={<Perfil />} />
