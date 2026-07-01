@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Users, CheckCircle2, AlertTriangle, Lock, DollarSign, TrendingDown, Search, Receipt } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUSES } from '@/lib/subscriptionContext';
+import { SUBSCRIPTION_PLAN } from '@/lib/subscriptionContext';
 import { formatCurrency } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
 import StatusBadge from '@/components/subscription/StatusBadge';
@@ -38,9 +38,9 @@ export default function Subscriptions() {
   const stats = useMemo(() => {
     const total = subscriptions.length;
     const active = subscriptions.filter(s => s.status === 'active').length;
-    const trial = subscriptions.filter(s => s.status === 'trial').length;
-    const overdue = subscriptions.filter(s => s.status === 'overdue' || s.status === 'pending_payment').length;
-    const blocked = subscriptions.filter(s => s.status === 'blocked').length;
+    const trial = subscriptions.filter(s => s.status === 'trialing' || s.status === 'trial').length;
+    const overdue = subscriptions.filter(s => ['past_due', 'pending', 'overdue', 'pending_payment'].includes(s.status)).length;
+    const blocked = subscriptions.filter(s => ['expired', 'blocked'].includes(s.status)).length;
     const cancelled = subscriptions.filter(s => s.status === 'cancelled').length;
     const mrr = active * SUBSCRIPTION_PLAN.price;
     const arr = mrr * 12;

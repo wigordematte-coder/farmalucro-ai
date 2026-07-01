@@ -2,6 +2,10 @@
   "name": "Invoice",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "file_url": {
       "type": "string",
       "title": "URL do Arquivo"

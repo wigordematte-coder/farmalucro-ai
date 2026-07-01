@@ -175,7 +175,7 @@ export default function Register() {
         base44.auth.setToken(result.access_token);
 
         // Create Tenant
-        const trialDays = globalSettings?.trial_duration_days || 14;
+        const trialDays = 14;
         const trialStart = new Date();
         const trialEnd = new Date();
         trialEnd.setDate(trialEnd.getDate() + trialDays);
@@ -189,7 +189,7 @@ export default function Register() {
           responsible_email: company.responsible_email,
           responsible_phone: company.responsible_phone,
           plan_name: globalSettings?.default_plan_name || SUBSCRIPTION_PLAN.name,
-          subscription_status: 'trial',
+          subscription_status: 'trialing',
           subscription_start_date: trialStart.toISOString().split('T')[0],
           subscription_end_date: trialEnd.toISOString().split('T')[0],
           is_suspended: false,
@@ -200,10 +200,11 @@ export default function Register() {
 
         // Create trial subscription
         await base44.entities.Subscription.create({
+          tenant_id: tenant.id,
           plan_name: globalSettings?.default_plan_name || SUBSCRIPTION_PLAN.name,
           plan_price: globalSettings?.default_plan_price || SUBSCRIPTION_PLAN.price,
           billing_cycle: 'monthly',
-          status: 'trial',
+          status: 'trialing',
           trial_start_date: trialStart.toISOString().split('T')[0],
           trial_end_date: trialEnd.toISOString().split('T')[0],
           auto_renew: true,
@@ -455,7 +456,7 @@ export default function Register() {
 
         <div className="bg-accent/5 border border-accent/20 rounded-lg p-3 text-xs text-muted-foreground">
           <p className="font-medium text-accent-dark mb-1">✓ Período de teste gratuito</p>
-          <p>Aproveite todas as funcionalidades por {globalSettings?.trial_duration_days || 14} dias. Sem cartão de crédito.</p>
+          <p>Aproveite todas as funcionalidades por 14 dias. Sem cartão de crédito.</p>
         </div>
 
         <Button type="submit" className="w-full h-12 font-medium" disabled={loading || cnpj.length < 18}>

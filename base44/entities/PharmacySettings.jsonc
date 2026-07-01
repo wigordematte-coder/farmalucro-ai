@@ -2,6 +2,10 @@
   "name": "PharmacySettings",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "name": {
       "type": "string",
       "title": "Nome da Farm\u00e1cia",
@@ -47,13 +51,15 @@
     "subscription_status": {
       "type": "string",
       "enum": [
-        "trial",
+        "trialing",
         "active",
+        "pending",
+        "past_due",
         "expired",
         "cancelled"
       ],
       "title": "Status da Assinatura",
-      "default": "trial"
+      "default": "trialing"
     },
     "subscription_plan": {
       "type": "string",

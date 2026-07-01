@@ -2,6 +2,10 @@
   "name": "ChatConversation",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "title": {
       "type": "string",
       "title": "T\u00edtulo",

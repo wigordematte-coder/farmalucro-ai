@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 export default function PaymentMethodSelector({ value, onChange }) {
   const methods = [
-    { key: 'pix', label: 'PIX', desc: 'Pagamento instantâneo', icon: QrCode },
+    { key: 'pix', label: 'PIX', desc: 'Pagamento único/manual', icon: QrCode },
     { key: 'credit_card', label: 'Cartão de Crédito', desc: 'Renovação automática', icon: CreditCard },
   ];
 

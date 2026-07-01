@@ -108,8 +108,8 @@ export default function Support() {
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       t.subscription_status === 'active' ? 'bg-accent/10 text-accent-dark' :
-                      t.subscription_status === 'trial' ? 'bg-blue-50 text-blue-600' :
-                      t.subscription_status === 'blocked' ? 'bg-red-50 text-red-600' :
+                      t.subscription_status === 'trialing' || t.subscription_status === 'trial' ? 'bg-blue-50 text-blue-600' :
+                      t.subscription_status === 'expired' || t.subscription_status === 'blocked' ? 'bg-red-50 text-red-600' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {t.subscription_status || '—'}

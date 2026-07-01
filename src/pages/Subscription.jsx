@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CreditCard, Calendar, RefreshCw, XCircle, AlertTriangle, LifeBuoy, Loader2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useSubscription, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUSES } from '@/lib/subscriptionContext';
-import { usePharmacy } from '@/lib/pharmacyContext';
+import { useSubscription, SUBSCRIPTION_PLAN } from '@/lib/subscriptionContext';
+import { appParams } from '@/lib/app-params';
 import { formatCurrency } from '@/lib/pricing';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, TENANT_REQUIRED_MESSAGE } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 import StatusBadge from '@/components/subscription/StatusBadge';
 import PlanDetails from '@/components/subscription/PlanDetails';
@@ -25,87 +27,66 @@ function formatDate(dateStr) {
 }
 
 export default function Subscription() {
-  const { subscription, loading, updateSubscription, reloadSubscription } = useSubscription();
-  const { settings } = usePharmacy();
+  const { subscription, loading, updateBillingInfo, cancelSubscription } = useSubscription();
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
   const [payments, setPayments] = useState([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [cancelDialog, setCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const loadPayments = useCallback(async () => {
     try {
+      if (roleLoading) return;
       setPaymentsLoading(true);
       const list = await base44.entities.Payment.list('-created_date', 100);
-      setPayments(list || []);
+      setPayments(isSuperAdmin ? (list || []) : filterByTenant(list, tenantId));
     } catch {
       setPayments([]);
     } finally {
       setPaymentsLoading(false);
     }
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
-  const handlePaymentConfirm = async (cardData) => {
-    const today = new Date().toISOString().split('T')[0];
-    const nextMonth = new Date();
-    if (subscription?.status === 'active' && subscription?.next_billing_date) {
-      nextMonth.setTime(new Date(subscription.next_billing_date + 'T00:00:00').getTime());
-    }
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const nextBillingDate = nextMonth.toISOString().split('T')[0];
-
-    const updateData = {
-      status: 'active',
-      last_payment_date: today,
-      next_billing_date: nextBillingDate,
-      payment_method: selectedMethod,
-      cancelled_date: null,
-      cancellation_reason: null,
-    };
-
-    if (selectedMethod === 'credit_card' && cardData) {
-      updateData.card_last_digits = cardData.last_digits;
-      updateData.card_brand = cardData.brand;
-      updateData.card_token = cardData.token;
-      updateData.auto_renew = true;
+  const handlePaymentConfirm = async () => {
+    if (!tenantId) {
+      alert(TENANT_REQUIRED_MESSAGE);
+      return;
     }
 
-    await updateSubscription(updateData);
-
-    await base44.entities.Payment.create({
-      amount: SUBSCRIPTION_PLAN.price,
-      method: selectedMethod,
-      status: 'paid',
-      payment_date: today,
-      due_date: today,
-      transaction_id: `txn_${Date.now()}`,
-      description: `Assinatura ${SUBSCRIPTION_PLAN.name} - ${formatDate(today)}`,
-    });
-
-    setPaymentDialog(false);
-    setSelectedMethod(null);
-    await loadPayments();
-    await reloadSubscription();
+    setCheckoutLoading(true);
+    try {
+      const baseUrl = appParams.appBaseUrl || '';
+      const res = await fetch(`${baseUrl}/api/functions/mercadopagoCheckout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: selectedMethod }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.checkout_url) {
+        throw new Error(data.error || 'Não foi possível iniciar o checkout.');
+      }
+      window.location.href = data.checkout_url;
+    } catch (e) {
+      alert(e?.message || 'Erro ao iniciar checkout Mercado Pago.');
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   const handleCancel = async () => {
     setCancelling(true);
-    const today = new Date().toISOString().split('T')[0];
-    await updateSubscription({
-      status: 'cancelled',
-      cancelled_date: today,
-      auto_renew: false,
-      cancellation_reason: 'Cancelado pelo usuário',
-    });
+    await cancelSubscription();
     setCancelling(false);
     setCancelDialog(false);
   };
 
   const handleBillingSave = async (formData) => {
-    await updateSubscription(formData);
+    await updateBillingInfo(formData);
   };
 
   if (loading) {
@@ -116,10 +97,9 @@ export default function Subscription() {
     );
   }
 
-  const status = subscription?.status || 'trial';
-  const statusConfig = SUBSCRIPTION_STATUSES[status];
-  const needsPayment = ['pending_payment', 'overdue', 'blocked', 'cancelled'].includes(status);
-  const isTrial = status === 'trial';
+  const status = subscription?.status || 'trialing';
+  const needsPayment = ['pending', 'past_due', 'cancelled', 'expired'].includes(status);
+  const isTrial = status === 'trialing';
 
   return (
     <div className="space-y-5 max-w-4xl">
@@ -133,23 +113,23 @@ export default function Subscription() {
 
       {needsPayment && (
         <div className={cn("flex items-start gap-3 p-4 rounded-2xl border",
-          status === 'blocked' ? "bg-red-50 border-red-200" :
-          status === 'overdue' ? "bg-orange-50 border-orange-200" :
+          status === 'expired' ? "bg-red-50 border-red-200" :
+          status === 'past_due' ? "bg-orange-50 border-orange-200" :
           "bg-yellow-50 border-yellow-200")}>
           <AlertTriangle className={cn("w-5 h-5 flex-shrink-0 mt-0.5",
-            status === 'blocked' ? 'text-red-500' :
-            status === 'overdue' ? 'text-orange-500' : 'text-yellow-500')} />
+            status === 'expired' ? 'text-red-500' :
+            status === 'past_due' ? 'text-orange-500' : 'text-yellow-500')} />
           <div className="flex-1">
             <p className="font-medium text-sm text-foreground">
-              {status === 'blocked' ? 'Assinatura bloqueada' :
-               status === 'overdue' ? 'Pagamento em atraso' :
+              {status === 'expired' ? 'Assinatura expirada' :
+               status === 'past_due' ? 'Pagamento em atraso' :
                status === 'cancelled' ? 'Assinatura cancelada' : 'Pagamento pendente'}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {status === 'blocked' ? 'Regularize o pagamento para restaurar o acesso ao sistema.' :
-               status === 'overdue' ? `Vencimento em ${formatDate(subscription?.next_billing_date)}. Pague agora para evitar o bloqueio.` :
+              {status === 'expired' ? 'Regularize o pagamento para restaurar o acesso ao sistema.' :
+               status === 'past_due' ? `Vencimento em ${formatDate(subscription?.next_billing_date)}. Pague agora para evitar expiração.` :
                status === 'cancelled' ? 'Reative sua assinatura para voltar a usar o sistema.' :
-               'Complete o pagamento para ativar sua assinatura.'}
+               'Finalize o checkout. A assinatura será liberada automaticamente após confirmação do Mercado Pago.'}
             </p>
           </div>
         </div>
@@ -200,7 +180,7 @@ export default function Subscription() {
             )}
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" /> Renovação automática
+                <RefreshCw className="w-4 h-4" /> {subscription?.payment_method === 'pix' ? 'PIX manual por ciclo' : 'Renovação automática'}
               </span>
               <span className={cn("text-sm font-medium", subscription?.auto_renew ? "text-accent" : "text-muted-foreground")}>
                 {subscription?.auto_renew ? 'Ativada' : 'Desativada'}
@@ -285,7 +265,7 @@ export default function Subscription() {
               selectedMethod={selectedMethod}
               onConfirm={handlePaymentConfirm}
               onBack={() => setSelectedMethod(null)}
-              loading={false}
+              loading={checkoutLoading}
             />
           )}
         </DialogContent>

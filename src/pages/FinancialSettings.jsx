@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, Plus, Loader2, Lock, CreditCard, Activity } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { cn } from '@/lib/utils';
+import { useUserRole } from '@/lib/roles';
 import GatewayCard from '@/components/admin/GatewayCard';
 import GatewayForm from '@/components/admin/GatewayForm';
 import TransactionLogs from '@/components/admin/TransactionLogs';
@@ -19,29 +19,23 @@ export default function FinancialSettings() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingGateway, setEditingGateway] = useState(null);
   const [testingId, setTestingId] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  const checkAdmin = useCallback(async () => {
-    try {
-      const user = await base44.auth.me();
-      if (user?.role !== 'admin') {
-        setAuthChecked(true);
-        return false;
-      }
-      setIsAdmin(true);
-      setAuthChecked(true);
-      return true;
-    } catch {
-      setAuthChecked(true);
-      return false;
-    }
-  }, []);
+  const { isSuperAdmin, loading: roleLoading } = useUserRole();
 
   const loadGateways = useCallback(async () => {
     try {
       const list = await base44.entities.PaymentGateway.list('-created_date', 100);
-      setGateways(list || []);
+      const sanitized = (list || []).map(gateway => {
+        if (gateway.provider_type !== 'mercadopago') return gateway;
+        if (gateway.api_key || gateway.public_key || gateway.secret_key) {
+          base44.entities.PaymentGateway.update(gateway.id, {
+            api_key: '',
+            public_key: '',
+            secret_key: '',
+          }).catch(() => {});
+        }
+        return { ...gateway, api_key: '', public_key: '', secret_key: '' };
+      });
+      setGateways(sanitized);
     } catch {
       setGateways([]);
     } finally {
@@ -67,26 +61,33 @@ export default function FinancialSettings() {
   }, []);
 
   useEffect(() => {
-    checkAdmin().then(ok => {
-      if (ok) {
-        loadGateways();
-        loadLogs();
-      }
-    });
-  }, [checkAdmin, loadGateways, loadLogs]);
+    if (isSuperAdmin) {
+      loadGateways();
+      loadLogs();
+    }
+  }, [isSuperAdmin, loadGateways, loadLogs]);
 
   const handleSave = async (formData) => {
     try {
+      const sanitizedFormData = { ...formData };
+      if (sanitizedFormData.provider_type === 'mercadopago') {
+        sanitizedFormData.api_key = '';
+        sanitizedFormData.public_key = '';
+        sanitizedFormData.secret_key = '';
+      }
       if (editingGateway?.id) {
-        const updateData = { ...formData };
+        const updateData = { ...sanitizedFormData };
         Object.keys(updateData).forEach(k => {
-          if (typeof updateData[k] === 'string' && updateData[k] === '' && ['api_key', 'public_key', 'secret_key'].includes(k)) {
+          if (updateData.provider_type !== 'mercadopago' &&
+              typeof updateData[k] === 'string' &&
+              updateData[k] === '' &&
+              ['api_key', 'public_key', 'secret_key'].includes(k)) {
             delete updateData[k];
           }
         });
         await base44.entities.PaymentGateway.update(editingGateway.id, updateData);
       } else {
-        await base44.entities.PaymentGateway.create(formData);
+        await base44.entities.PaymentGateway.create(sanitizedFormData);
       }
       setFormOpen(false);
       setEditingGateway(null);
@@ -122,6 +123,8 @@ export default function FinancialSettings() {
   const handleTest = async (gw) => {
     setTestingId(gw.id);
     try {
+      const usesBackendSecrets = gw.provider_type === 'mercadopago';
+      const hasCredentials = usesBackendSecrets || Boolean(gw.api_key);
       await base44.integrations.Core.InvokeLLM({
         prompt: `Simule um teste de conexão com gateway de pagamento (${gw.provider_type}, ambiente: ${gw.environment}). O gateway possui credenciais configuradas. Responda se a conexão foi bem-sucedida.`,
         response_json_schema: {
@@ -140,8 +143,10 @@ export default function FinancialSettings() {
       await base44.entities.TransactionLog.create({
         transaction_id: `test_${Date.now()}`,
         gateway_name: gw.name,
-        status: gw.api_key ? 'approved' : 'error',
-        api_message: gw.api_key ? 'Teste de conexão realizado com sucesso.' : 'Teste falhou: credenciais ausentes.',
+        status: hasCredentials ? 'approved' : 'error',
+        api_message: usesBackendSecrets
+          ? 'Mercado Pago configurado via secrets do backend/Base44.'
+          : hasCredentials ? 'Teste de conexão realizado com sucesso.' : 'Teste falhou: credenciais ausentes.',
         event_type: 'connection_test',
         amount: 0,
       });
@@ -153,7 +158,7 @@ export default function FinancialSettings() {
     }
   };
 
-  if (!authChecked) {
+  if (roleLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -161,7 +166,7 @@ export default function FinancialSettings() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">

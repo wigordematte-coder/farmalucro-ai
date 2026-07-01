@@ -2,6 +2,10 @@
   "name": "Payment",
   "type": "object",
   "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
     "amount": {
       "type": "number",
       "title": "Valor",

@@ -44,6 +44,7 @@ export const SUPER_ADMIN_NAV = [
   { label: 'Clientes', path: '/admin/clientes', icon: 'Building2' },
   { label: 'Assinaturas', path: '/admin/assinaturas', icon: 'CreditCard' },
   { label: 'Cobranças', path: '/admin/cobrancas', icon: 'Wallet' },
+  { label: 'Config. Financeiras', path: '/admin/financeiro', icon: 'Wallet' },
   { label: 'Receita', path: '/admin/receita', icon: 'DollarSign' },
   { label: 'Logs', path: '/admin/logs', icon: 'ScrollText' },
   { label: 'Suporte', path: '/admin/suporte', icon: 'Users' },
@@ -59,7 +60,7 @@ export function getNavForRole(appRole) {
 export function useUserRole() {
   const { user, isLoadingAuth } = useAuth();
 
-  const appRole = user?.app_role || (user?.role === 'admin' ? 'super_admin' : 'operator');
+  const appRole = user?.app_role || 'operator';
   const tenantId = user?.tenant_id || '';
   const isSuperAdmin = appRole === 'super_admin';
   const isPharmacyAdmin = appRole === 'pharmacy_admin';

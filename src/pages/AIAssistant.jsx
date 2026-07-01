@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Sparkles, Plus, Trash2, MessageSquare, Loader2, Brain, TrendingUp, ShoppingBag, DollarSign, RefreshCw, Star, ChevronRight } from 'lucide-react';
+import { Send, Sparkles, Plus, Trash2, MessageSquare, Loader2, Brain, TrendingUp, ShoppingBag, DollarSign, RefreshCw, Star, ChevronRight, ShieldCheck, Database, Target } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import PremiumMessageBubble from '@/components/PremiumMessageBubble';
 import { useProducts } from '@/hooks/useProducts';
@@ -7,6 +7,8 @@ import { useOpportunities } from '@/hooks/useOpportunities';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { formatCurrency, calculatePotentialProfit, calculateInventoryValue, isExpiringSoon } from '@/lib/pricing';
 import { PHARMACY_BENCHMARKS } from '@/lib/constants';
+import { useUserRole } from '@/lib/roles';
+import { belongsToTenant, filterByTenant, TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const SUGGESTED_QUESTIONS = [
@@ -21,6 +23,7 @@ const SUGGESTED_QUESTIONS = [
 export default function AIAssistant() {
   const { products } = useProducts();
   const { settings } = usePharmacy();
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
   const { opportunities, stats: oppStats } = useOpportunities(products, settings);
   const [conversations, setConversations] = useState([]);
   const [currentConvId, setCurrentConvId] = useState(null);
@@ -32,27 +35,36 @@ export default function AIAssistant() {
 
   const loadConversations = useCallback(async () => {
     try {
+      if (roleLoading) return;
       const list = await base44.entities.ChatConversation.list('-created_date', 50);
-      setConversations(list || []);
-      if (list && list.length > 0 && !currentConvId) {
-        setCurrentConvId(list[0].id);
+      const tenantConversations = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      setConversations(tenantConversations);
+      if (tenantConversations && tenantConversations.length > 0 && !currentConvId) {
+        setCurrentConvId(tenantConversations[0].id);
       }
     } catch (e) {
       setConversations([]);
     }
-  }, [currentConvId]);
+  }, [currentConvId, tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   const loadMessages = useCallback(async (convId) => {
     if (!convId) return;
     try {
+      if (roleLoading) return;
+      const conversation = conversations.find(conv => conv.id === convId);
+      if (!isSuperAdmin && !belongsToTenant(conversation, tenantId)) {
+        setMessages([]);
+        return;
+      }
       const list = await base44.entities.ChatMessage.filter({ conversation_id: convId }, '-created_date', 200);
-      setMessages((list || []).reverse());
+      const tenantMessages = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      setMessages(tenantMessages.reverse());
     } catch (e) {
       setMessages([]);
     }
-  }, []);
+  }, [conversations, tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { if (currentConvId) loadMessages(currentConvId); }, [currentConvId, loadMessages]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -97,15 +109,25 @@ BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) =
   const handleSend = async (text) => {
     const question = text || input;
     if (!question.trim() || loading) return;
+    if (!tenantId) {
+      alert(TENANT_REQUIRED_MESSAGE);
+      return;
+    }
 
     let convId = currentConvId;
     if (!convId) {
       try {
-        const conv = await base44.entities.ChatConversation.create({ title: question.substring(0, 40) });
+        const conv = await base44.entities.ChatConversation.create(withRequiredTenantId({ title: question.substring(0, 40) }, tenantId));
         convId = conv.id;
         setCurrentConvId(convId);
         setConversations(prev => [conv, ...prev]);
       } catch (e) { return; }
+    } else {
+      const conversation = conversations.find(conv => conv.id === convId);
+      if (!belongsToTenant(conversation, tenantId)) {
+        alert('Esta conversa não pertence à empresa vinculada ao seu usuário.');
+        return;
+      }
     }
 
     const userMsg = { role: 'user', content: question, conversation_id: convId };
@@ -114,7 +136,7 @@ BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) =
     setLoading(true);
 
     try {
-      await base44.entities.ChatMessage.create({ conversation_id: convId, role: 'user', content: question });
+      await base44.entities.ChatMessage.create(withRequiredTenantId({ conversation_id: convId, role: 'user', content: question }, tenantId));
 
       const context = buildContext();
       const prompt = `Você é o "Consultor FarmaLucro AI", um especialista sênior em gestão farmacêutica com foco em lucratividade, precificação estratégica e giro de estoque.
@@ -144,7 +166,7 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
       const assistantMsg = { role: 'assistant', content: responseText, conversation_id: convId };
       setMessages(prev => [...prev, assistantMsg]);
 
-      await base44.entities.ChatMessage.create({ conversation_id: convId, role: 'assistant', content: responseText });
+      await base44.entities.ChatMessage.create(withRequiredTenantId({ conversation_id: convId, role: 'assistant', content: responseText }, tenantId));
       await base44.entities.ChatConversation.update(convId, { last_message: question.substring(0, 50) });
       loadConversations();
     } catch (e) {
@@ -162,28 +184,36 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
 
   const handleDeleteConversation = async (id) => {
     try {
-      await base44.entities.ChatMessage.deleteMany({ conversation_id: id });
+      const conversation = conversations.find(conv => conv.id === id);
+      if (!belongsToTenant(conversation, tenantId)) {
+        alert('Esta conversa não pertence à empresa vinculada ao seu usuário.');
+        return;
+      }
+      await base44.entities.ChatMessage.deleteMany({ conversation_id: id, tenant_id: tenantId });
       await base44.entities.ChatConversation.delete(id);
       if (currentConvId === id) { setCurrentConvId(null); setMessages([]); }
       loadConversations();
     } catch (e) {}
   };
 
+  const highPriorityCount = opportunities.filter(o => o.priority === 'alta').length;
+  const monthlyImpact = oppStats?.totalMonthly || 0;
+
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-12rem)] lg:h-[calc(100vh-8rem)]">
+    <div className="flex flex-col lg:flex-row gap-4 min-h-[calc(100vh-10rem)] lg:h-[calc(100vh-8rem)]">
 
       {/* Sidebar de conversas */}
       {showSidebar && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setShowSidebar(false)} />
       )}
-      <div className={cn(
-        "lg:w-64 lg:flex-shrink-0 flex flex-col bg-card border border-border rounded-2xl overflow-hidden",
+      <aside className={cn(
+        "lg:w-72 lg:flex-shrink-0 flex flex-col bg-card border border-border rounded-2xl overflow-hidden shadow-sm",
         showSidebar
           ? "fixed left-0 top-0 bottom-0 w-72 z-50 rounded-none"
           : "hidden lg:flex"
       )}>
         {/* Header sidebar */}
-        <div className="p-4 border-b border-border flex items-center justify-between bg-gradient-to-r from-primary/5 to-ai/5">
+        <div className="p-4 border-b border-border flex items-center justify-between bg-gradient-to-r from-primary/5 via-ai/5 to-accent/5">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-ai" />
             <span className="font-semibold text-sm text-foreground">Conversas</span>
@@ -191,7 +221,7 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
           <button onClick={() => setShowSidebar(false)} className="lg:hidden text-muted-foreground hover:text-foreground">✕</button>
         </div>
 
-        <div className="p-3">
+        <div className="p-3 border-b border-border/70">
           <button
             onClick={handleNewConversation}
             className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-ai to-purple-600 text-white font-medium text-sm hover:opacity-90 transition-opacity shadow-sm"
@@ -200,7 +230,7 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-1">
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-2 py-2 space-y-1">
           {conversations.map(conv => (
             <div
               key={conv.id}
@@ -229,15 +259,14 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
             <p className="text-xs text-muted-foreground text-center py-6">Nenhuma consulta ainda</p>
           )}
         </div>
-      </div>
+      </aside>
 
       {/* Área principal do chat */}
-      <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+      <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden shadow-sm min-h-[680px] lg:min-h-0">
 
         {/* Header premium */}
-        <div className="relative p-4 border-b border-border overflow-hidden">
-          <div className="absolute inset-0 gradient-farma opacity-[0.04]" />
-          <div className="relative flex items-center justify-between">
+        <div className="relative p-4 lg:p-5 border-b border-border overflow-hidden bg-gradient-to-br from-primary/[0.04] via-ai/[0.03] to-accent/[0.04]">
+          <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button onClick={() => setShowSidebar(true)} className="lg:hidden mr-1 text-muted-foreground">
                 <MessageSquare className="w-5 h-5" />
@@ -251,25 +280,26 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
                   <div className="w-1.5 h-1.5 rounded-full bg-white" />
                 </div>
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-bold text-foreground text-sm">Consultor FarmaLucro AI</h2>
+                  <h2 className="font-bold text-foreground text-base">Consultor FarmaLucro AI</h2>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-ai/10 text-ai font-semibold border border-ai/20">PRO</span>
                 </div>
-                <p className="text-xs text-muted-foreground">Especialista em lucratividade farmacêutica · <span className="text-accent font-medium">● Online</span></p>
+                <p className="text-xs text-muted-foreground">Especialista em lucratividade farmacêutica · <span className="text-accent font-medium">online com dados do tenant atual</span></p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 rounded-xl px-3 py-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-ai" />
-              <span>IA com dados da sua farmácia</span>
+            <div className="grid grid-cols-3 gap-2">
+              <AssistantMetric icon={Database} label="Produtos" value={products?.length || 0} />
+              <AssistantMetric icon={DollarSign} label="Impacto/mês" value={formatCurrency(monthlyImpact)} />
+              <AssistantMetric icon={Target} label="Prioridade" value={highPriorityCount} />
             </div>
           </div>
         </div>
 
         {/* Mensagens */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-1">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-3 sm:p-4 lg:p-5 space-y-1 bg-gradient-to-b from-muted/20 to-background/20">
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-center py-8 px-4">
+            <div className="flex flex-col items-center justify-center h-full text-center py-8 px-2 sm:px-4">
               {/* Avatar grande */}
               <div className="relative mb-5">
                 <div className="w-20 h-20 rounded-3xl gradient-ai flex items-center justify-center shadow-xl shadow-ai/25">
@@ -283,11 +313,11 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
               <p className="text-sm text-muted-foreground mb-2 max-w-sm">
                 Seu especialista em rentabilidade farmacêutica.
               </p>
-              <p className="text-xs text-muted-foreground mb-7 max-w-sm">
+              <p className="text-xs text-muted-foreground mb-7 max-w-md">
                 Analiso seus dados em tempo real e entrego recomendações precisas com impacto financeiro estimado.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-2xl">
                 {SUGGESTED_QUESTIONS.map(({ icon: Icon, label, color, bg }) => (
                   <button
                     key={label}
@@ -331,7 +361,21 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
         </div>
 
         {/* Input premium */}
-        <div className="p-4 border-t border-border bg-muted/20">
+        <div className="p-3 sm:p-4 border-t border-border bg-card">
+          {messages.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto scrollbar-thin pb-3 mb-3">
+              {SUGGESTED_QUESTIONS.slice(0, 4).map(({ icon: Icon, label }) => (
+                <button
+                  key={label}
+                  onClick={() => handleSend(label)}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 flex-shrink-0 rounded-full border border-border bg-muted/40 hover:bg-muted px-3 py-1.5 text-xs text-foreground transition-colors disabled:opacity-50"
+                >
+                  <Icon className="w-3.5 h-3.5 text-ai" /> {label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
               <textarea
@@ -351,11 +395,23 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-2 text-center">
-            IA com acesso aos dados reais da sua farmácia · Pressione Enter para enviar
+          <p className="text-[11px] text-muted-foreground mt-2 text-center flex items-center justify-center gap-1.5">
+            <ShieldCheck className="w-3 h-3" /> IA com dados reais filtrados por tenant · Enter envia
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AssistantMetric({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-xl border border-border bg-card/80 px-3 py-2 shadow-sm min-w-0">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Icon className="w-3.5 h-3.5 text-ai" />
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="text-sm font-bold text-foreground truncate mt-0.5">{value}</p>
     </div>
   );
 }

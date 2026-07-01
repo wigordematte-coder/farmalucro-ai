@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Outlet, useLocation, Link } from 'react-router-dom';
-import { Menu, Bell, ShieldCheck, Lock, User } from 'lucide-react';
+import { Menu, Bell, ShieldCheck, Lock } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import TrialBanner from '@/components/TrialBanner';
 import BlockedScreen from '@/components/subscription/BlockedScreen';
 import AwaitingSubscription from '@/components/AwaitingSubscription';
 import { usePharmacy } from '@/lib/pharmacyContext';
-import { useSubscription, RESTRICTED_ROUTES } from '@/lib/subscriptionContext';
+import { useSubscription } from '@/lib/subscriptionContext';
 import { useUserRole } from '@/lib/roles';
+import { isCriticalRoute } from '@/lib/entitlements';
 import { cn } from '@/lib/utils';
 
 export default function Layout({ children }) {
@@ -21,9 +22,7 @@ export default function Layout({ children }) {
   const isAdminRoute = location.pathname.startsWith('/admin');
   const accessDenied = isAdminRoute && !isSuperAdmin;
 
-  const isRestrictedRoute = !isAdmin && isRestricted && RESTRICTED_ROUTES.some(route =>
-    location.pathname === route || location.pathname.startsWith(route + '/')
-  );
+  const isRestrictedRoute = !isAdmin && isRestricted && isCriticalRoute(location.pathname);
 
   const allowRoutes = ['/assinatura', '/configuracoes', '/perfil'];
   const showBlocked = isBlocked && !allowRoutes.includes(location.pathname) && !isAdminRoute;
@@ -89,7 +88,7 @@ export default function Layout({ children }) {
         </header>
 
         <main className="px-4 lg:px-8 py-6 pb-24 lg:pb-8">
-          {!isSuperAdmin && subscription?.status === 'trial' && !showAwaiting && !showBlocked && (
+          {!isSuperAdmin && subscription?.status === 'trialing' && !showAwaiting && !showBlocked && (
             <div className="mb-4">
               <TrialBanner />
             </div>

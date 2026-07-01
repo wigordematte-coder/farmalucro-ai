@@ -39,6 +39,7 @@ export default function Settings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
+      if (e?.message) { alert(e.message); return; }
       alert('Erro ao salvar configurações');
     } finally {
       setSaving(false);

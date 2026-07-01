@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant, withRequiredTenantId } from '@/lib/tenant';
 
 const DEFAULT_CATEGORY_MARGINS = [
   { category: 'Medicamentos', margin_pct: 25 },
@@ -13,15 +15,21 @@ const DEFAULT_CATEGORY_MARGINS = [
 export function useCategoryMargins() {
   const [margins, setMargins] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
 
   const load = useCallback(async () => {
     try {
+      if (roleLoading) return;
       setLoading(true);
       const list = await base44.entities.CategoryMargin.list('-created_date', 100);
-      if (list && list.length > 0) {
-        setMargins(list);
+      const tenantMargins = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      if (tenantMargins && tenantMargins.length > 0) {
+        setMargins(tenantMargins);
+      } else if (!tenantId) {
+        setMargins([]);
       } else {
-        const created = await base44.entities.CategoryMargin.bulkCreate(DEFAULT_CATEGORY_MARGINS);
+        const defaults = DEFAULT_CATEGORY_MARGINS.map(margin => withRequiredTenantId(margin, tenantId));
+        const created = await base44.entities.CategoryMargin.bulkCreate(defaults);
         setMargins(created || DEFAULT_CATEGORY_MARGINS);
       }
     } catch (e) {
@@ -29,7 +37,7 @@ export function useCategoryMargins() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -42,11 +50,11 @@ export function useCategoryMargins() {
 
   const createMargin = useCallback(async (category, margin_pct) => {
     try {
-      const created = await base44.entities.CategoryMargin.create({ category, margin_pct });
+      const created = await base44.entities.CategoryMargin.create(withRequiredTenantId({ category, margin_pct }, tenantId));
       setMargins(prev => [...prev, created]);
       return created;
-    } catch (e) { return null; }
-  }, []);
+    } catch (e) { throw e; }
+  }, [tenantId]);
 
   const deleteMargin = useCallback(async (id) => {
     try {

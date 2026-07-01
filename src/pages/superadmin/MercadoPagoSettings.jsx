@@ -1,44 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Shield, Eye, EyeOff, Save, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Webhook } from 'lucide-react';
+import { Shield, Save, CheckCircle2, AlertTriangle, Loader2, Webhook } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useUserRole } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-
-function MaskedInput({ value, onChange, placeholder, id, ...props }) {
-  const [show, setShow] = useState(false);
-  const masked = value ? value.slice(0, 4) + '****' + value.slice(-4) : '';
-  return (
-    <div className="relative">
-      <Input
-        id={id}
-        type={show ? 'text' : 'password'}
-        value={value || ''}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="pr-10"
-        {...props}
-      />
-      <button
-        type="button"
-        onClick={() => setShow(v => !v)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-      >
-        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-      </button>
-    </div>
-  );
-}
 
 export default function MercadoPagoSettings() {
   const { isSuperAdmin } = useUserRole();
   const [gateway, setGateway] = useState(null);
   const [form, setForm] = useState({
-    public_key: '',
-    api_key: '',
-    secret_key: '',
     environment: 'sandbox',
     status: 'inactive',
   });
@@ -60,11 +30,15 @@ export default function MercadoPagoSettings() {
       const list = await base44.entities.PaymentGateway.filter({ provider_type: 'mercadopago' });
       if (list && list.length > 0) {
         const g = list[0];
-        setGateway(g);
+        if (g.api_key || g.public_key || g.secret_key) {
+          await base44.entities.PaymentGateway.update(g.id, {
+            api_key: '',
+            public_key: '',
+            secret_key: '',
+          });
+        }
+        setGateway({ ...g, api_key: '', public_key: '', secret_key: '' });
         setForm({
-          public_key: g.public_key || '',
-          api_key: g.api_key || '',
-          secret_key: g.secret_key || '',
           environment: g.environment || 'sandbox',
           status: g.status || 'inactive',
         });
@@ -83,13 +57,13 @@ export default function MercadoPagoSettings() {
       const data = {
         name: 'Mercado Pago',
         provider_type: 'mercadopago',
-        public_key: form.public_key,
-        api_key: form.api_key,
-        secret_key: form.secret_key,
         environment: form.environment,
         status: form.status,
         is_default: true,
         webhook_url: webhookUrl,
+        api_key: '',
+        public_key: '',
+        secret_key: '',
       };
       if (gateway?.id) {
         await base44.entities.PaymentGateway.update(gateway.id, data);
@@ -173,37 +147,13 @@ export default function MercadoPagoSettings() {
       <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
         <h3 className="font-semibold text-foreground flex items-center gap-2">
           <Shield className="w-4 h-4" /> Credenciais
-          <span className="text-xs font-normal text-muted-foreground ml-1">— nunca exibidas em texto pleno</span>
         </h3>
 
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="public_key">Public Key</Label>
-            <MaskedInput
-              id="public_key"
-              value={form.public_key}
-              onChange={v => setForm(f => ({ ...f, public_key: v }))}
-              placeholder="APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            />
-          </div>
-          <div>
-            <Label htmlFor="api_key">Access Token</Label>
-            <MaskedInput
-              id="api_key"
-              value={form.api_key}
-              onChange={v => setForm(f => ({ ...f, api_key: v }))}
-              placeholder="APP_USR-0000000000000000-000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-000000000"
-            />
-          </div>
-          <div>
-            <Label htmlFor="secret_key">Client Secret</Label>
-            <MaskedInput
-              id="secret_key"
-              value={form.secret_key}
-              onChange={v => setForm(f => ({ ...f, secret_key: v }))}
-              placeholder="Chave secreta da aplicação"
-            />
-          </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 space-y-2">
+          <p className="font-medium">Mercado Pago usa apenas secrets do backend/Base44.</p>
+          <p className="font-mono text-xs">MERCADOPAGO_ACCESS_TOKEN</p>
+          <p className="font-mono text-xs">MERCADOPAGO_WEBHOOK_SECRET</p>
+          <p>Nenhum token é salvo ou exibido neste painel.</p>
         </div>
       </div>
 

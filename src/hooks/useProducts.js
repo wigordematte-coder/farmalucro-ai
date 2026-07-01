@@ -2,17 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { classifyABC, calculateProductMetrics, isExpiringSoon } from '@/lib/pricing';
 import { usePharmacy } from '@/lib/pharmacyContext';
+import { useUserRole } from '@/lib/roles';
+import { filterByTenant } from '@/lib/tenant';
 
 export function useProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const { settings } = usePharmacy();
+  const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
 
   const loadProducts = useCallback(async () => {
     try {
+      if (roleLoading) return;
       setLoading(true);
       const list = await base44.entities.Product.list('-created_date', 500);
-      const classified = classifyABC(list || []);
+      const tenantProducts = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
+      const classified = classifyABC(tenantProducts);
       const enriched = classified.map(p => {
         const metrics = calculateProductMetrics(p, settings);
         const enriched = {
@@ -35,11 +40,11 @@ export function useProducts() {
     } finally {
       setLoading(false);
     }
-  }, [settings]);
+  }, [settings, tenantId, isSuperAdmin, roleLoading]);
 
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  return { products, loading, reloadProducts: loadProducts, settings };
+  return { products, loading, reloadProducts: loadProducts, settings, tenantId };
 }

@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import EmptyState from '@/components/EmptyState';
 import { formatCurrency } from '@/lib/pricing';
 import { useProducts } from '@/hooks/useProducts';
+import { TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED_TYPES = '.xml,.pdf,.jpg,.jpeg,.png,.heic,image/*,application/pdf,text/xml,application/xml';
@@ -32,7 +33,7 @@ function getErrorMessage(err) {
 }
 
 export default function Import() {
-  const { settings, reloadProducts } = useProducts();
+  const { settings, reloadProducts, tenantId } = useProducts();
   const [stage, setStage] = useState(null); // null | 'uploading' | 'extracting' | 'generating'
   const [extractedItems, setExtractedItems] = useState([]);
   const [invoice, setInvoice] = useState(null);
@@ -47,6 +48,10 @@ export default function Import() {
     setSaved(false);
 
     if (!file) return;
+    if (!tenantId) {
+      setError(TENANT_REQUIRED_MESSAGE);
+      return;
+    }
 
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const isXML = ext === 'xml' || file.type === 'text/xml' || file.type === 'application/xml';
@@ -69,12 +74,12 @@ export default function Import() {
       const fileUrl = uploadRes.file_url;
       const fileType = isXML ? 'xml' : isPDF ? 'pdf' : 'image';
 
-      const invoiceRecord = await base44.entities.Invoice.create({
+      const invoiceRecord = await base44.entities.Invoice.create(withRequiredTenantId({
         file_url: fileUrl,
         file_name: file.name,
         file_type: fileType,
         status: 'pending',
-      });
+      }, tenantId));
       setInvoice(invoiceRecord);
       setStage('extracting');
 
@@ -102,7 +107,7 @@ export default function Import() {
     } finally {
       setStage(null);
     }
-  }, []);
+  }, [tenantId]);
 
   const handleSave = async () => {
     try {
@@ -120,7 +125,7 @@ export default function Import() {
         const unitProfit = selectedPrice - cost;
         const marginPct = selectedPrice > 0 ? ((selectedPrice - cost) / selectedPrice) * 100 : 0;
 
-        return {
+        return withRequiredTenantId({
           name: item.name,
           manufacturer: item.manufacturer || '',
           category: item.category || '',
@@ -138,7 +143,7 @@ export default function Import() {
           high_margin: marginPct >= 35,
           risk_of_obsolescence: true,
           last_purchase_date: new Date().toISOString().split('T')[0],
-        };
+        }, tenantId);
       });
 
       if (records.length > 0) {

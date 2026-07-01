@@ -23,7 +23,7 @@ export default function TrialBanner() {
     return { potentialProfit, opportunities, promotions, productCount: products.length };
   }, [products]);
 
-  if (!subscription || subscription.status !== 'trial') return null;
+  if (!subscription || subscription.status !== 'trialing') return null;
 
   const isUrgent = trialDaysRemaining <= 3;
 

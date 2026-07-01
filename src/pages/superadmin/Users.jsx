@@ -26,7 +26,7 @@ export default function Users() {
   const filtered = useMemo(() => {
     let result = users;
     if (roleFilter !== 'all') {
-      result = result.filter(u => (u.app_role || (u.role === 'admin' ? 'super_admin' : 'operator')) === roleFilter);
+      result = result.filter(u => (u.app_role || 'operator') === roleFilter);
     }
     if (search) {
       const q = search.toLowerCase();
@@ -100,7 +100,7 @@ export default function Users() {
               {filtered.length === 0 ? (
                 <tr><td colSpan="5" className="py-8 text-center text-muted-foreground">Nenhum usuário encontrado.</td></tr>
               ) : filtered.map(u => {
-                const appRole = u.app_role || (u.role === 'admin' ? 'super_admin' : 'operator');
+                const appRole = u.app_role || 'operator';
                 const roleCfg = APP_ROLES[appRole] || APP_ROLES.operator;
                 return (
                   <tr key={u.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
