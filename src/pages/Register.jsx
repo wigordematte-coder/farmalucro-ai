@@ -14,6 +14,30 @@ import { SUBSCRIPTION_PLAN } from "@/lib/subscriptionContext";
 import { logAudit } from "@/lib/audit";
 import { cn } from "@/lib/utils";
 
+function getSignupErrorMessage(err) {
+  const apiMessage = err?.data?.error ||
+    err?.data?.message ||
+    err?.response?.data?.error ||
+    err?.response?.data?.message;
+
+  if (apiMessage) {
+    return apiMessage;
+  }
+
+  const status = err?.status || err?.response?.status;
+  if (status === 409) {
+    return "Este e-mail ja esta cadastrado. Faca login ou recupere sua senha.";
+  }
+  if (status === 400) {
+    return "Nao foi possivel criar a conta. Verifique os dados informados.";
+  }
+  if (status === 429) {
+    return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.";
+  }
+
+  return err?.message || "Erro ao criar conta. Verifique os dados e tente novamente.";
+}
+
 export default function Register() {
   const [searchParams] = useSearchParams();
   const { settings: globalSettings } = useGlobalSettings();
@@ -160,7 +184,9 @@ export default function Register() {
       await base44.auth.register({ email: company.responsible_email, password });
       setStep(4);
     } catch (err) {
-      setError(err.message || "Erro ao criar conta. Este e-mail já pode estar cadastrado.");
+      const message = getSignupErrorMessage(err);
+      setError(message);
+      setPasswordError(message);
     } finally {
       setLoading(false);
     }
@@ -285,6 +311,9 @@ export default function Register() {
       >
         {passwordError && (
           <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{passwordError}</div>
+        )}
+        {error && !passwordError && (
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
         )}
 
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
