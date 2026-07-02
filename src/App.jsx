@@ -20,6 +20,7 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 
 import Home from '@/pages/Home';
+import Welcome from '@/pages/Welcome';
 import Products from '@/pages/Products';
 import Import from '@/pages/Import';
 import AIAssistant from '@/pages/AIAssistant';
@@ -111,6 +112,7 @@ const AuthenticatedApp = () => {
         <SubscriptionProvider>
           <Routes>
             <Route element={<Layout />}>
+              <Route path="/welcome" element={<Welcome />} />
               <Route path="/dashboard" element={<Home />} />
               <Route path="/importacao" element={<RequireEntitlement path="/importacao"><Import /></RequireEntitlement>} />
               <Route path="/produtos" element={<Products />} />

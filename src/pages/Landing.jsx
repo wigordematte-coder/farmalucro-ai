@@ -4,9 +4,11 @@ import {
   Check, ChevronDown, ArrowRight, Pill, Brain, Target, Clock
 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '@/lib/AuthContext';
 import { cn } from '@/lib/utils';
 
 export default function Landing() {
+  const { isAuthenticated } = useAuth();
   const [faqOpen, setFaqOpen] = useState(null);
 
   return (
@@ -27,12 +29,21 @@ export default function Landing() {
             <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link to="/login" className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Login
-            </Link>
-            <Link to="/register" className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark transition-colors">
-              Teste Grátis
-            </Link>
+            {isAuthenticated ? (
+              <Link to="/dashboard" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark transition-colors">
+                Ir para dashboard
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
+                  Login
+                </Link>
+                <Link to="/register" className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark transition-colors">
+                  Teste Gratis
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
