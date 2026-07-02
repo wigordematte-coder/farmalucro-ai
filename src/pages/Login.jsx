@@ -68,7 +68,7 @@ export default function Login() {
       await base44.auth.loginViaEmailPassword(tenantEmail, password);
       await logAudit('login', `Login realizado via CNPJ: ${tenantName}`);
       window.location.href = "/dashboard";
-    } catch (err) {
+    } catch {
       setError("Senha incorreta. Verifique e tente novamente.");
     } finally {
       setLoading(false);

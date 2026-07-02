@@ -42,7 +42,7 @@ import AuditLogs from '@/pages/superadmin/AuditLogs';
 import GlobalSettingsPage from '@/pages/superadmin/GlobalSettings';
 import MercadoPagoSettings from '@/pages/superadmin/MercadoPagoSettings';
 
-const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
+const AUTH_ROUTES = ['/login', '/register', '/cadastro', '/forgot-password', '/reset-password'];
 
 const withRole = (element, allowedRoles) => (
   <RoleGuard allowedRoles={allowedRoles}>{element}</RoleGuard>
@@ -51,10 +51,18 @@ const withRole = (element, allowedRoles) => (
 const withSuperAdmin = (element) => withRole(element, ['super_admin']);
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated } = useAuth();
   const location = useLocation();
 
   const isAuthRoute = AUTH_ROUTES.includes(location.pathname);
+
+  if (location.pathname === '/' && !isLoadingPublicSettings) {
+    return (
+      <GlobalSettingsProvider>
+        <Landing />
+      </GlobalSettingsProvider>
+    );
+  }
 
   if (isAuthRoute && !isLoadingPublicSettings) {
     return (
@@ -62,6 +70,7 @@ const AuthenticatedApp = () => {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/cadastro" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
@@ -81,8 +90,7 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
+      return <Navigate to="/login" replace />;
     }
   }
 
@@ -91,7 +99,7 @@ const AuthenticatedApp = () => {
       <GlobalSettingsProvider>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="*" element={<Landing />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </GlobalSettingsProvider>
     );
@@ -102,7 +110,6 @@ const AuthenticatedApp = () => {
       <PharmacyProvider>
         <SubscriptionProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Home />} />
               <Route path="/importacao" element={<RequireEntitlement path="/importacao"><Import /></RequireEntitlement>} />
