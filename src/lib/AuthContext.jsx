@@ -5,6 +5,15 @@ import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 
 const AuthContext = createContext();
 
+function hasAuthenticatedUser(currentUser) {
+  return Boolean(
+    currentUser &&
+    !currentUser.is_anonymous &&
+    !currentUser.anonymous &&
+    (currentUser.id || currentUser.email)
+  );
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -94,8 +103,9 @@ export const AuthProvider = ({ children }) => {
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(true);
+      const authenticated = hasAuthenticatedUser(currentUser);
+      setUser(authenticated ? currentUser : null);
+      setIsAuthenticated(authenticated);
       setIsLoadingAuth(false);
       setAuthChecked(true);
     } catch (error) {

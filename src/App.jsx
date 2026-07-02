@@ -52,12 +52,12 @@ const withRole = (element, allowedRoles) => (
 const withSuperAdmin = (element) => withRole(element, ['super_admin']);
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated } = useAuth();
+  const { user, isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated } = useAuth();
   const location = useLocation();
 
   const isAuthRoute = AUTH_ROUTES.includes(location.pathname);
 
-  if (location.pathname === '/' && !isLoadingPublicSettings) {
+  if (location.pathname === '/') {
     return (
       <GlobalSettingsProvider>
         <Landing />
@@ -65,7 +65,7 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (isAuthRoute && !isLoadingPublicSettings) {
+  if (isAuthRoute) {
     return (
       <GlobalSettingsProvider>
         <Routes>
@@ -78,6 +78,8 @@ const AuthenticatedApp = () => {
       </GlobalSettingsProvider>
     );
   }
+
+  const hasSession = Boolean(isAuthenticated && user);
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -95,11 +97,10 @@ const AuthenticatedApp = () => {
     }
   }
 
-  if (!isAuthenticated) {
+  if (!hasSession) {
     return (
       <GlobalSettingsProvider>
         <Routes>
-          <Route path="/" element={<Landing />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </GlobalSettingsProvider>
