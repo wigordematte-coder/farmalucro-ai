@@ -107,6 +107,14 @@ const AuthenticatedApp = () => {
     );
   }
 
+  const appRole = user?.app_role || '';
+  const isSuperAdmin = appRole === 'super_admin';
+  const hasTenant = Boolean(user?.tenant_id);
+
+  if (!isSuperAdmin && !hasTenant && location.pathname !== '/welcome') {
+    return <Navigate to="/welcome" replace />;
+  }
+
   return (
     <GlobalSettingsProvider>
       <PharmacyProvider>

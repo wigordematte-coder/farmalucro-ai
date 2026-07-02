@@ -8,8 +8,14 @@ import { useAuth } from '@/lib/AuthContext';
 import { cn } from '@/lib/utils';
 
 export default function Landing() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [faqOpen, setFaqOpen] = useState(null);
+  const canOpenDashboard = Boolean(
+    isAuthenticated &&
+    user &&
+    (user.app_role === 'super_admin' || user.tenant_id)
+  );
+  const dashboardHref = canOpenDashboard ? '/dashboard' : '/login';
 
   return (
     <div className="min-h-screen bg-background">
@@ -30,14 +36,14 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
-              <Link to="/dashboard" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark transition-colors">
+              <Link to={dashboardHref} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark transition-colors">
                 Ir para dashboard
                 <ArrowRight className="w-4 h-4" />
               </Link>
             ) : (
               <>
                 <Link to="/login" className="px-4 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
-                  Login
+                  Ir para dashboard
                 </Link>
                 <Link to="/register" className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark transition-colors">
                   Teste Gratis
