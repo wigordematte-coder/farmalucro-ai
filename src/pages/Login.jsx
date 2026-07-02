@@ -9,6 +9,7 @@ import AuthLayout from "@/components/AuthLayout";
 import PasswordInput from "@/components/PasswordInput";
 import { formatCNPJ, cleanCNPJ, validateCNPJ, maskEmail } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
+import { resolveTenantByCNPJ } from "@/lib/cnpjLookup";
 
 export default function Login() {
   const [step, setStep] = useState(1);
@@ -33,9 +34,8 @@ export default function Login() {
 
     setCheckingCnpj(true);
     try {
-      const tenants = await base44.entities.Tenant.filter({ cnpj: cleanCNPJ(cnpj) });
-      if (tenants && tenants.length > 0) {
-        const tenant = tenants[0];
+      const tenant = await resolveTenantByCNPJ(cnpj);
+      if (tenant) {
         setTenantEmail(tenant.responsible_email || "");
         setTenantName(tenant.name || "");
         if (!tenant.responsible_email) {
@@ -53,8 +53,9 @@ export default function Login() {
         setCnpjError("CNPJ não encontrado. Deseja criar uma nova conta?");
         setCheckingCnpj(false);
       }
-    } catch {
-      setCnpjError("Erro ao verificar CNPJ. Tente novamente.");
+    } catch (err) {
+      console.warn('resolveTenantByCnpj failed', err);
+      setCnpjError(err.message || "Erro ao verificar CNPJ. Tente novamente.");
     } finally {
       setCheckingCnpj(false);
     }

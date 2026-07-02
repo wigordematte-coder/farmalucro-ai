@@ -9,8 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import AuthLayout from "@/components/AuthLayout";
 import PasswordInput from "@/components/PasswordInput";
 import { formatCNPJ, cleanCNPJ, validateCNPJ, validatePassword, getPasswordStrength } from "@/lib/auth-helpers";
-import { useGlobalSettings } from "@/lib/globalSettingsContext";
-import { SUBSCRIPTION_PLAN } from "@/lib/subscriptionContext";
+import { fetchCompanyByCNPJ } from "@/lib/cnpjLookup";
 import { logAudit } from "@/lib/audit";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +39,6 @@ function getSignupErrorMessage(err) {
 
 export default function Register() {
   const [searchParams] = useSearchParams();
-  const { settings: globalSettings } = useGlobalSettings();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -54,14 +52,20 @@ export default function Register() {
   const [company, setCompany] = useState({
     razao_social: "",
     nome_fantasia: "",
+    address: "",
     city: "",
     state: "",
+    zip_code: "",
+    registration_status: "",
+    cnae: "",
+    cnae_description: "",
     responsible_name: "",
     responsible_email: "",
     responsible_phone: "",
   });
   const [autoFilling, setAutoFilling] = useState(false);
   const [autoFillTried, setAutoFillTried] = useState(false);
+  const [autoFillError, setAutoFillError] = useState("");
 
   // Step 3: Password
   const [password, setPassword] = useState("");
@@ -96,50 +100,42 @@ export default function Register() {
     try {
       const existing = await base44.entities.Tenant.filter({ cnpj: cleanCNPJ(cnpjToCheck) });
       if (existing && existing.length > 0) {
-        setCnpjError("Este CNPJ já está cadastrado. Faça login ou recupere sua senha.");
+        setCnpjError("Este CNPJ ja esta cadastrado. Faca login ou recupere sua senha.");
         setLoading(false);
         return;
       }
-      setStep(2);
-      // Try auto-fill
-      autoFillCompanyData(cleanCNPJ(cnpjToCheck));
     } catch {
-      setCnpjError("Erro ao verificar CNPJ. Tente novamente.");
-    } finally {
-      setLoading(false);
+      // A checagem client-side pode ser limitada por ACL/RLS antes do login.
+      // A validacao definitiva de duplicidade ocorre em registerTenant.
     }
-  };
 
+    setStep(2);
+    autoFillCompanyData(cleanCNPJ(cnpjToCheck));
+    setLoading(false);
+  };
   const autoFillCompanyData = async (cleanCnpj) => {
     setAutoFilling(true);
     setAutoFillTried(true);
+    setAutoFillError("");
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Busque os dados públicos da empresa brasileira cadastrada no CNPJ ${cleanCnpj}. Retorne a razão social, nome fantasia (se houver), município, UF (estado) e CNAE (atividade principal). Se não encontrar dados, retorne campos vazios.`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            razao_social: { type: "string" },
-            nome_fantasia: { type: "string" },
-            municipio: { type: "string" },
-            uf: { type: "string" },
-            atividade_principal: { type: "string" }
-          }
-        }
-      });
+      const result = await fetchCompanyByCNPJ(cleanCnpj);
 
       if (result) {
         setCompany(prev => ({
           ...prev,
           razao_social: result.razao_social || prev.razao_social,
           nome_fantasia: result.nome_fantasia || prev.nome_fantasia,
-          city: result.municipio || prev.city,
-          state: result.uf || prev.state,
+          address: result.address || prev.address,
+          city: result.city || prev.city,
+          state: result.state || prev.state,
+          zip_code: result.zip_code || prev.zip_code,
+          registration_status: result.registration_status || prev.registration_status,
+          cnae: result.cnae || prev.cnae,
+          cnae_description: result.cnae_description || prev.cnae_description,
         }));
       }
-    } catch {
-      // Silent fail - user can fill manually
+    } catch (err) {
+      setAutoFillError(err.message || "Nao foi possivel buscar os dados automaticamente. Preencha manualmente.");
     } finally {
       setAutoFilling(false);
     }
@@ -200,46 +196,22 @@ export default function Register() {
       if (result?.access_token) {
         base44.auth.setToken(result.access_token);
 
-        // Create Tenant
-        const trialDays = 14;
-        const trialStart = new Date();
-        const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + trialDays);
-
-        const tenant = await base44.entities.Tenant.create({
-          name: company.razao_social,
-          cnpj: cleanCNPJ(cnpj),
-          city: company.city,
-          state: company.state,
-          responsible_name: company.responsible_name,
-          responsible_email: company.responsible_email,
-          responsible_phone: company.responsible_phone,
-          plan_name: globalSettings?.default_plan_name || SUBSCRIPTION_PLAN.name,
-          subscription_status: 'trialing',
-          subscription_start_date: trialStart.toISOString().split('T')[0],
-          subscription_end_date: trialEnd.toISOString().split('T')[0],
-          is_suspended: false,
+        const registerRes = await fetch('/api/functions/registerTenant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cnpj: cleanCNPJ(cnpj),
+            company,
+          }),
         });
-
-        // Update user with app_role and tenant_id
-        await base44.auth.updateMe({ app_role: 'pharmacy_admin', tenant_id: tenant.id });
-
-        // Create trial subscription
-        await base44.entities.Subscription.create({
-          tenant_id: tenant.id,
-          plan_name: globalSettings?.default_plan_name || SUBSCRIPTION_PLAN.name,
-          plan_price: globalSettings?.default_plan_price || SUBSCRIPTION_PLAN.price,
-          billing_cycle: 'monthly',
-          status: 'trialing',
-          trial_start_date: trialStart.toISOString().split('T')[0],
-          trial_end_date: trialEnd.toISOString().split('T')[0],
-          auto_renew: true,
-          billing_company_name: company.razao_social,
-          billing_responsible_name: company.responsible_name,
-          billing_email: company.responsible_email,
-          billing_phone: company.responsible_phone,
-        });
-
+        const registerPayload = await registerRes.json().catch(() => ({}));
+        if (!registerRes.ok) {
+          throw new Error(registerPayload.error || 'Nao foi possivel salvar os dados da farmacia.');
+        }
+        const tenant = registerPayload.tenant;
+        if (!tenant?.id || !registerPayload.pharmacySettings?.id) {
+          throw new Error('Cadastro incompleto: Tenant ou configuracoes da farmacia nao foram salvos.');
+        }
         await logAudit('login', `Nova farmácia cadastrada: ${company.razao_social} (CNPJ: ${cleanCNPJ(cnpj)})`, {
           tenant_id: tenant.id, tenant_name: company.razao_social,
         });
@@ -391,7 +363,7 @@ export default function Register() {
         {autoFillTried && !autoFilling && !company.razao_social && (
           <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-2 text-sm text-amber-700">
             <AlertCircle className="w-4 h-4" />
-            Não foi possível obter dados automaticamente. Preencha manualmente.
+            {autoFillError || "Nao foi possivel obter dados automaticamente. Preencha manualmente."}
           </div>
         )}
 
@@ -408,6 +380,12 @@ export default function Register() {
               onChange={(e) => setCompany({ ...company, nome_fantasia: e.target.value })}
               placeholder="Nome fantasia (opcional)" className="h-12" />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="address">EndereÃ§o</Label>
+            <Input id="address" value={company.address}
+              onChange={(e) => setCompany({ ...company, address: e.target.value })}
+              placeholder="EndereÃ§o da farmÃ¡cia" className="h-12" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="city">Cidade</Label>
@@ -421,6 +399,26 @@ export default function Register() {
                 onChange={(e) => setCompany({ ...company, state: e.target.value })}
                 placeholder="UF" className="h-12" maxLength={2} />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="zip">CEP</Label>
+              <Input id="zip" value={company.zip_code}
+                onChange={(e) => setCompany({ ...company, zip_code: e.target.value })}
+                placeholder="00000-000" className="h-12" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">SituaÃ§Ã£o cadastral</Label>
+              <Input id="status" value={company.registration_status}
+                onChange={(e) => setCompany({ ...company, registration_status: e.target.value })}
+                placeholder="Ativa" className="h-12" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cnae">CNAE</Label>
+            <Input id="cnae" value={company.cnae_description || company.cnae}
+              onChange={(e) => setCompany({ ...company, cnae_description: e.target.value })}
+              placeholder="Atividade principal" className="h-12" />
           </div>
 
           <div className="pt-2 border-t border-border">
