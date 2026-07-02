@@ -3,6 +3,7 @@ export const CRITICAL_ROUTES = [
   '/consultor-ia',
   '/relatorios',
   '/precificacao',
+  '/plano-acao',
 ];
 
 const LEGACY_STATUS = {

@@ -1,0 +1,101 @@
+{
+  "name": "Recommendation",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
+    "product_id": {
+      "type": "string",
+      "title": "Produto"
+    },
+    "product_name": {
+      "type": "string",
+      "title": "Nome do Produto"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "price_increase",
+        "price_decrease",
+        "margin_fix",
+        "promotion",
+        "stock_turnover"
+      ],
+      "title": "Tipo"
+    },
+    "title": {
+      "type": "string",
+      "title": "Titulo"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descricao"
+    },
+    "current_price": {
+      "type": "number",
+      "title": "Preco Atual"
+    },
+    "suggested_price": {
+      "type": "number",
+      "title": "Preco Sugerido"
+    },
+    "current_margin": {
+      "type": "number",
+      "title": "Margem Atual"
+    },
+    "projected_margin": {
+      "type": "number",
+      "title": "Margem Projetada"
+    },
+    "estimated_monthly_gain": {
+      "type": "number",
+      "title": "Ganho Mensal Estimado"
+    },
+    "confidence": {
+      "type": "number",
+      "title": "Confianca"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "applied"
+      ],
+      "title": "Status",
+      "default": "pending"
+    },
+    "reason": {
+      "type": "string",
+      "title": "Motivo"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "product_id",
+    "type",
+    "title",
+    "status"
+  ],
+  "x-base44-rls": {
+    "type": "tenant",
+    "tenantField": "tenant_id",
+    "clientCondition": "data.tenant_id == user.data.tenant_id",
+    "denyClientWhenTenantMissing": true,
+    "superAdminCondition": "user.data.app_role == 'super_admin'",
+    "serviceRoleAllowed": true,
+    "clientPermissions": {
+      "create": true,
+      "read": true,
+      "update": true,
+      "delete": false
+    },
+    "protectedFieldsForClient": [
+      "tenant_id",
+      "product_id"
+    ]
+  }
+}

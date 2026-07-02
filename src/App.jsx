@@ -28,6 +28,7 @@ import Reports from '@/pages/Reports';
 import Settings from '@/pages/Settings';
 import Subscription from '@/pages/Subscription';
 import Precificacao from '@/pages/Precificacao';
+import ActionPlan from '@/pages/ActionPlan';
 import Perfil from '@/pages/Perfil';
 import Results from '@/pages/Results';
 import AdminPanel from '@/pages/AdminPanel';
@@ -125,6 +126,7 @@ const AuthenticatedApp = () => {
               <Route path="/dashboard" element={<Home />} />
               <Route path="/importacao" element={<RequireEntitlement path="/importacao"><Import /></RequireEntitlement>} />
               <Route path="/produtos" element={<Products />} />
+              <Route path="/plano-acao" element={withRole(<RequireEntitlement path="/plano-acao"><ActionPlan /></RequireEntitlement>, ['pharmacy_admin', 'pharmacist'])} />
               <Route path="/precificacao" element={withRole(<RequireEntitlement path="/precificacao"><Precificacao /></RequireEntitlement>, ['pharmacy_admin', 'pharmacist'])} />
               <Route path="/consultor-ia" element={withRole(<RequireEntitlement path="/consultor-ia"><AIAssistant /></RequireEntitlement>, ['pharmacy_admin', 'pharmacist'])} />
               <Route path="/relatorios" element={withRole(<RequireEntitlement path="/relatorios"><Reports /></RequireEntitlement>, ['pharmacy_admin', 'pharmacist'])} />

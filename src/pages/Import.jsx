@@ -1,14 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
-import { Upload, FileText, FileCode, CheckCircle2, Loader2, AlertCircle, Save, Package, Camera, RotateCcw, Sparkles } from 'lucide-react';
+import { Upload, FileText, FileCode, CheckCircle2, Loader2, AlertCircle, Save, Package, Camera, RotateCcw, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import EmptyState from '@/components/EmptyState';
-import { formatCurrency } from '@/lib/pricing';
+import { formatCurrency, formatPercent, getPricingRecommendation } from '@/lib/pricing';
 import { useProducts } from '@/hooks/useProducts';
+import { buildProductRecommendations } from '@/lib/recommendations';
 import { TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
-const ACCEPTED_TYPES = '.xml,.pdf,.jpg,.jpeg,.png,.heic,image/*,application/pdf,text/xml,application/xml';
 const ACCEPTED_EXTENSIONS = ['xml', 'pdf', 'jpg', 'jpeg', 'png', 'heic'];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -39,6 +38,7 @@ export default function Import() {
   const [invoice, setInvoice] = useState(null);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [importSummary, setImportSummary] = useState(null);
   const fileInputRefs = useRef({});
 
   const handleFile = useCallback(async (file) => {
@@ -46,6 +46,7 @@ export default function Import() {
     setExtractedItems([]);
     setInvoice(null);
     setSaved(false);
+    setImportSummary(null);
 
     if (!file) return;
     if (!tenantId) {
@@ -111,19 +112,17 @@ export default function Import() {
 
   const handleSave = async () => {
     try {
-      setSaved(true);
-      const minMargin = settings?.min_margin || 15;
-      const idealMargin = settings?.ideal_margin || 30;
-      const maxMargin = settings?.max_margin || 50;
-
       const records = extractedItems.map(item => {
         const cost = Number(item.cost) || 0;
-        const aggressive = cost / (1 - minMargin / 100);
-        const balanced = cost / (1 - idealMargin / 100);
-        const premium = cost / (1 - maxMargin / 100);
-        const selectedPrice = balanced;
-        const unitProfit = selectedPrice - cost;
-        const marginPct = selectedPrice > 0 ? ((selectedPrice - cost) / selectedPrice) * 100 : 0;
+        const recommendation = getPricingRecommendation({
+          ...item,
+          cost,
+          quantity: Number(item.quantity) || 0,
+          selected_price: Number(item.current_price || item.selected_price || 0) || 0,
+        }, settings, []);
+        const activePrice = Number(item.current_price || item.selected_price || 0) || 0;
+        const activeUnitProfit = activePrice > 0 ? activePrice - cost : 0;
+        const activeMarginPct = activePrice > 0 ? ((activePrice - cost) / activePrice) * 100 : 0;
 
         return withRequiredTenantId({
           name: item.name,
@@ -131,26 +130,60 @@ export default function Import() {
           category: item.category || '',
           cost: cost,
           quantity: Number(item.quantity) || 0,
-          price_aggressive: Math.round(aggressive * 100) / 100,
-          price_balanced: Math.round(balanced * 100) / 100,
-          price_premium: Math.round(premium * 100) / 100,
-          selected_price: Math.round(selectedPrice * 100) / 100,
-          unit_profit: Math.round(unitProfit * 100) / 100,
-          margin_pct: Math.round(marginPct * 100) / 100,
-          roi: cost > 0 ? Math.round((unitProfit / cost) * 100 * 100) / 100 : 0,
+          abc_class: item.abc_class || null,
+          price_aggressive: recommendation.prices?.aggressive || 0,
+          price_balanced: recommendation.prices?.balanced || 0,
+          price_premium: recommendation.prices?.premium || 0,
+          selected_price: activePrice,
+          current_price: recommendation.currentPrice || 0,
+          min_safe_price: recommendation.minSafePrice || 0,
+          suggested_price: recommendation.suggestedPrice || 0,
+          suggested_margin_pct: recommendation.suggestedMarginPct || 0,
+          pricing_status: recommendation.status,
+          pricing_reason: recommendation.reason,
+          pricing_confidence: recommendation.confidence,
+          pricing_confidence_level: recommendation.confidenceLevel,
+          market_reference_status: recommendation.marketReferenceStatus,
+          pmc_price: Number(item.pmc_price || item.cmed_pmc || item.pmc || 0) || 0,
+          unit_profit: Math.round(activeUnitProfit * 100) / 100,
+          margin_pct: Math.round(activeMarginPct * 100) / 100,
+          roi: cost > 0 ? Math.round((activeUnitProfit / cost) * 100 * 100) / 100 : 0,
           invoice_id: invoice?.id || '',
           monthly_sales: 0,
-          high_margin: marginPct >= 35,
+          high_margin: activeMarginPct >= 35,
           risk_of_obsolescence: true,
           last_purchase_date: new Date().toISOString().split('T')[0],
         }, tenantId);
       });
 
       if (records.length > 0) {
-        await base44.entities.Product.bulkCreate(records);
+        const createdProducts = [];
+        for (const record of records) {
+          const created = await base44.entities.Product.create(record);
+          createdProducts.push(created);
+        }
+
+        const recommendationRecords = createdProducts.flatMap(product =>
+          buildProductRecommendations(product, settings, tenantId)
+        );
+        for (const recommendation of recommendationRecords) {
+          await base44.entities.Recommendation.create(recommendation);
+        }
+
         await base44.entities.Invoice.update(invoice.id, { status: 'processed', extracted_count: records.length });
+        const manualReviewCount = records.filter(record => ['manual_review', 'insufficient_data'].includes(record.pricing_status)).length;
+        const opportunitiesFound = recommendationRecords.length;
+        const potentialProfit = recommendationRecords.reduce((sum, recommendation) =>
+          sum + Math.max(Number(recommendation.estimated_monthly_gain || 0), 0), 0);
+        setImportSummary({
+          imported: records.length,
+          manualReview: manualReviewCount,
+          opportunities: opportunitiesFound,
+          potentialProfit,
+        });
         reloadProducts();
       }
+      setSaved(true);
     } catch {
       setError('Não conseguimos salvar os produtos. Verifique sua conexão e tente novamente.');
       setSaved(false);
@@ -163,6 +196,7 @@ export default function Import() {
     setError('');
     setSaved(false);
     setStage(null);
+    setImportSummary(null);
   };
 
   const triggerInput = (key) => fileInputRefs.current[key]?.click();
@@ -225,14 +259,33 @@ export default function Import() {
                 <tbody>
                   {extractedItems.map((item, i) => {
                     const cost = Number(item.cost) || 0;
-                    const suggestedPrice = cost / (1 - (settings?.ideal_margin || 30) / 100);
+                    const recommendation = getPricingRecommendation({
+                      ...item,
+                      cost,
+                      quantity: Number(item.quantity) || 0,
+                    }, settings, []);
+                    const hasSuggestion = recommendation.status === 'ok' && recommendation.suggestedPrice > 0;
                     return (
                       <tr key={i} className="border-t border-border">
                         <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">{item.name || '—'}</td>
                         <td className="px-4 py-3 text-muted-foreground">{item.category || '—'}</td>
                         <td className="px-4 py-3 text-center">{item.quantity || 1}</td>
                         <td className="px-4 py-3 text-right">{formatCurrency(cost)}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-accent-dark">{formatCurrency(suggestedPrice)}</td>
+                        <td className="px-4 py-3 text-right">
+                          {hasSuggestion ? (
+                            <div>
+                              <p className="font-semibold text-accent-dark">{formatCurrency(recommendation.suggestedPrice)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Margem {formatPercent(recommendation.suggestedMarginPct)} - ConfianÃ§a {recommendation.confidenceLevel}
+                              </p>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="font-semibold text-amber-700">RevisÃ£o manual</p>
+                              <p className="text-xs text-muted-foreground">Dados insuficientes</p>
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -251,22 +304,70 @@ export default function Import() {
       )}
 
       {saved && (
-        <EmptyState
-          icon={CheckCircle2}
-          title="Nota importada com sucesso!"
-          description={`${extractedItems.length} produtos foram cadastrados com precificação automática. A IA já está gerando oportunidades de lucro.`}
-          action={
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Link to="/dashboard" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground font-medium text-sm hover:bg-accent-dark">
-                <Sparkles className="w-4 h-4" /> Ver Oportunidades
-              </Link>
-              <Link to="/produtos" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-foreground font-medium text-sm hover:bg-muted">
-                <Package className="w-4 h-4" /> Ver Produtos
-              </Link>
-            </div>
-          }
-        />
+        <ImportSuccessSummary summary={importSummary} fallbackCount={extractedItems.length} />
       )}
+    </div>
+  );
+}
+
+function ImportSuccessSummary({ summary, fallbackCount }) {
+  const data = summary || {
+    imported: fallbackCount,
+    manualReview: 0,
+    opportunities: 0,
+    potentialProfit: 0,
+  };
+
+  return (
+    <div className="rounded-3xl border border-border bg-card p-6 lg:p-8">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+        <div>
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Nota importada com sucesso</h2>
+          <p className="text-sm text-muted-foreground mt-2 max-w-xl">
+            Os produtos foram salvos para revisao. O proximo passo e priorizar os itens com maior impacto antes de aplicar qualquer preco.
+          </p>
+        </div>
+        <Link to="/plano-acao" className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-foreground font-medium text-sm hover:bg-muted">
+          <Sparkles className="w-4 h-4" /> Ver plano de acao
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-6">
+        <SummaryMetric icon={Package} label="Produtos importados" value={data.imported} />
+        <SummaryMetric icon={AlertCircle} label="Em revisao manual" value={data.manualReview} tone={data.manualReview > 0 ? 'amber' : 'emerald'} />
+        <SummaryMetric icon={TrendingUp} label="Oportunidades encontradas" value={data.opportunities} />
+        <SummaryMetric icon={Sparkles} label="Lucro potencial identificado" value={formatCurrency(data.potentialProfit || 0)} />
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2 mt-7">
+        <Link to="/plano-acao" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-accent text-accent-foreground font-semibold text-sm hover:bg-accent-dark">
+          <Sparkles className="w-4 h-4" /> Ver plano de acao
+        </Link>
+        <Link to="/precificacao" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-border text-foreground font-medium text-sm hover:bg-muted">
+          <Package className="w-4 h-4" /> Revisar produtos
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function SummaryMetric({ icon: Icon, label, value, tone = 'accent' }) {
+  const toneClass = tone === 'amber'
+    ? 'bg-amber-50 text-amber-700'
+    : tone === 'emerald'
+      ? 'bg-emerald-50 text-emerald-700'
+      : 'bg-accent/10 text-accent';
+
+  return (
+    <div className="rounded-2xl border border-border bg-muted/20 p-4">
+      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', toneClass)}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl font-bold text-foreground mt-1">{value}</p>
     </div>
   );
 }
@@ -370,7 +471,7 @@ async function parseXmlNF(file) {
   return items;
 }
 
-async function extractWithAI(fileUrl, fileType) {
+async function extractWithAI(fileUrl, _fileType) {
   const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
     file_url: fileUrl,
     json_schema: {

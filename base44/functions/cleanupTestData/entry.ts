@@ -8,6 +8,7 @@ const TENANT_SCOPED_ENTITIES = [
   'Product',
   'Invoice',
   'Payment',
+  'Recommendation',
   'ChatMessage',
   'ChatConversation',
   'Oportunidade',

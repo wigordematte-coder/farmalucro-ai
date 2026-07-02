@@ -1,8 +1,10 @@
 import { FileUp, TrendingUp, Tag, Sparkles, DollarSign, Boxes, RefreshCw, Star, ArrowRight, Target, ShieldCheck, Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
+import { useRecommendations } from '@/hooks/useRecommendations';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/pricing';
+import { summarizeRecommendations } from '@/lib/recommendations';
 import { cn } from '@/lib/utils';
 import { useUserRole } from '@/lib/roles';
 import DailySummary from '@/components/dashboard/DailySummary';
@@ -15,7 +17,6 @@ import InsightBanner from '@/components/InsightBanner';
 
 function calcFarmaScore(products, opportunities, settings) {
   if (!products || products.length === 0) return undefined;
-  const minMargin = settings?.min_margin || 15;
   const idealMargin = settings?.ideal_margin || 30;
   const withMargin = products.filter(p => (p.margin_pct || 0) > 0);
   const avgMargin = withMargin.length > 0 ? withMargin.reduce((s, p) => s + p.margin_pct, 0) / withMargin.length : 0;
@@ -34,6 +35,7 @@ function calcFarmaScore(products, opportunities, settings) {
 
 export default function Home() {
   const { products, loading, settings } = useProducts();
+  const { recommendations } = useRecommendations();
   const { tenantId } = useUserRole();
   const { opportunities, stats, topCategories } = useOpportunities(products, settings);
 
@@ -53,6 +55,7 @@ export default function Home() {
   const priorityActions = opportunities.filter(o => o.priority === 'alta').slice(0, 5);
   const byType = stats?.byType || {};
   const farmaScore = calcFarmaScore(products, opportunities, settings);
+  const recommendationSummary = summarizeRecommendations(recommendations);
 
   return (
     <div className="space-y-5 lg:space-y-6">
@@ -72,6 +75,8 @@ export default function Home() {
       </div>
 
       <InsightBanner products={products} settings={settings} tenantId={tenantId} />
+
+      <RecoverableProfitCard summary={recommendationSummary} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -219,6 +224,57 @@ function ExecutiveMetric({ icon: Icon, label, value, hint, tone }) {
   );
 }
 
+function RecoverableProfitCard({ summary }) {
+  const top = summary.top || [];
+
+  return (
+    <section className="rounded-2xl border border-accent/20 bg-gradient-to-br from-card to-accent/[0.05] p-4 lg:p-5 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent-dark flex items-center justify-center">
+            <DollarSign className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-accent-dark uppercase tracking-normal">Inteligencia comercial</p>
+            <h2 className="text-xl font-bold text-foreground mt-1">Lucro Potencial Recuperavel</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Recomendacoes pendentes para responder o que fazer hoje para ganhar mais dinheiro.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 lg:min-w-[360px]">
+          <div className="rounded-xl border border-border bg-white/75 p-3">
+            <p className="text-xs text-muted-foreground">Estimativa mensal</p>
+            <p className="text-2xl font-bold text-accent-dark mt-1">{formatCurrency(summary.estimatedMonthlyGain)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-white/75 p-3">
+            <p className="text-xs text-muted-foreground">Pendentes</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{summary.pendingCount}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1">
+          {top.length > 0 ? top.map(item => (
+            <div key={item.id} className="rounded-xl border border-border bg-white/70 p-3">
+              <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{formatCurrency(item.estimated_monthly_gain)}/mes</p>
+            </div>
+          )) : (
+            <div className="md:col-span-3 rounded-xl border border-border bg-white/70 p-3 text-sm text-muted-foreground">
+              Importe uma NF para gerar o primeiro plano de acao.
+            </div>
+          )}
+        </div>
+        <Link to="/plano-acao" className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark whitespace-nowrap">
+          Ver plano de acao <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 function OpportunityCard({ icon: Icon, title, value, subtitle, color, to, emphasis }) {
   const colors = {
     accent: 'bg-accent/10 text-accent-dark border-accent/20',
@@ -254,14 +310,17 @@ function EmptyEnvironment({ settings }) {
       <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
         Bem-vindo ao FarmaLucro AI{settings?.name ? `, ${settings.name}` : ''}
       </h1>
-      <p className="text-muted-foreground mb-8">
-        Seu ambiente foi criado com sucesso. Importe sua primeira nota fiscal para ativar o Consultor Proativo e receber recomendações personalizadas.
+      <p className="text-muted-foreground mb-8 max-w-xl">
+        Seu dashboard ainda esta vazio. Importe uma nota fiscal para liberar o Consultor Proativo, revisar produtos e encontrar a primeira oportunidade real.
       </p>
       <Link
         to="/importacao"
-        className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-accent text-accent-foreground font-semibold text-sm hover:bg-accent-dark transition-colors shadow-lg shadow-accent/20"
+        className="inline-flex items-center gap-3 px-8 py-5 rounded-2xl bg-accent text-accent-foreground font-bold text-base hover:bg-accent-dark transition-colors shadow-xl shadow-accent/25"
       >
-        <FileUp className="w-5 h-5" /> Importar Nota Fiscal
+        <FileUp className="w-6 h-6" /> Importar primeira nota fiscal
+      </Link>
+      <Link to="/welcome" className="mt-4 text-sm font-medium text-accent hover:underline">
+        Ver checklist de ativacao
       </Link>
       <div className="mt-8 grid grid-cols-3 gap-4 w-full max-w-md">
         <Step icon={FileUp} label="Importe" description="Sua nota fiscal" />
