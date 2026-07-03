@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { Trophy, TrendingUp, CheckCircle2, Tag, Boxes, ShieldCheck, Sparkles, Package, Star, ArrowRight, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
-import { useOpportunities } from '@/hooks/useOpportunities';
+import { useRecommendations } from '@/hooks/useRecommendations';
 import { useSubscription } from '@/lib/subscriptionContext';
 import { formatCurrency } from '@/lib/pricing';
+import { buildRecommendationStats, recommendationToOpportunity } from '@/lib/recommendationMetrics';
 import { cn } from '@/lib/utils';
 import FarmaScore from '@/components/dashboard/FarmaScore';
 
@@ -37,7 +38,8 @@ function daysSince(dateStr) {
 
 export default function Results() {
   const { products, loading, settings } = useProducts();
-  const { opportunities, stats } = useOpportunities(products, settings);
+  const { recommendations, metrics } = useRecommendations();
+  const { opportunities, stats } = buildRecommendationStats(recommendations);
   const { subscription } = useSubscription();
 
   const isTrial = subscription?.status === 'trialing';
@@ -46,9 +48,10 @@ export default function Results() {
 
   const score = useMemo(() => calcScore(products, opportunities, settings), [products, opportunities, settings]);
 
-  const applied = opportunities.filter(o => o.status === 'aplicada');
-  const promotionsApplied = applied.filter(o => o.type === 'promocao_recomendada');
-  const capturedProfit = applied.reduce((s, o) => s + (o.financial_impact_monthly || 0), 0);
+  const appliedRecommendations = recommendations.filter(o => o.status === 'applied');
+  const applied = appliedRecommendations.map(recommendationToOpportunity);
+  const promotionsApplied = appliedRecommendations.filter(o => ['promotion', 'stock_turnover'].includes(o.type));
+  const capturedProfit = metrics.realizedGain || 0;
 
   const avgMargin = useMemo(() => {
     const with_ = products.filter(p => (p.margin_pct || 0) > 0);

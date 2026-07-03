@@ -1,0 +1,86 @@
+{
+  "name": "ActionResult",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
+    "recommendation_id": {
+      "type": "string",
+      "title": "Recomendacao"
+    },
+    "product_id": {
+      "type": "string",
+      "title": "Produto"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "price_increase",
+        "price_decrease",
+        "margin_fix",
+        "promotion",
+        "stock_turnover"
+      ],
+      "title": "Tipo de Acao"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "measured"
+      ],
+      "title": "Status",
+      "default": "applied"
+    },
+    "estimated_monthly_gain": {
+      "type": "number",
+      "title": "Ganho Mensal Estimado"
+    },
+    "realized_monthly_gain": {
+      "type": "number",
+      "title": "Ganho Mensal Realizado",
+      "default": 0
+    },
+    "applied_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Aplicacao"
+    },
+    "measured_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Medicao"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Observacoes"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "recommendation_id",
+    "action_type",
+    "status"
+  ],
+  "x-base44-rls": {
+    "type": "tenant",
+    "tenantField": "tenant_id",
+    "clientCondition": "data.tenant_id == user.data.tenant_id",
+    "denyClientWhenTenantMissing": true,
+    "superAdminCondition": "user.data.app_role == 'super_admin'",
+    "serviceRoleAllowed": true,
+    "clientPermissions": {
+      "create": true,
+      "read": true,
+      "update": true,
+      "delete": false
+    },
+    "protectedFieldsForClient": [
+      "tenant_id",
+      "recommendation_id",
+      "product_id"
+    ]
+  }
+}

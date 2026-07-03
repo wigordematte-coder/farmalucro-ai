@@ -1,21 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Sparkles, Plus, Trash2, MessageSquare, Loader2, Brain, TrendingUp, ShoppingBag, DollarSign, RefreshCw, Star, ChevronRight, ShieldCheck, Database, Target } from 'lucide-react';
+import { Send, Sparkles, Plus, Trash2, MessageSquare, Loader2, Brain, TrendingUp, PackageSearch, DollarSign, RefreshCw, ChevronRight, ShieldCheck, Database, Target } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import PremiumMessageBubble from '@/components/PremiumMessageBubble';
 import { useProducts } from '@/hooks/useProducts';
-import { useOpportunities } from '@/hooks/useOpportunities';
+import { useRecommendations } from '@/hooks/useRecommendations';
 import { usePharmacy } from '@/lib/pharmacyContext';
 import { formatCurrency, calculatePotentialProfit, calculateInventoryValue, isExpiringSoon } from '@/lib/pricing';
 import { PHARMACY_BENCHMARKS } from '@/lib/constants';
+import { buildRecommendationStats } from '@/lib/recommendationMetrics';
 import { useUserRole } from '@/lib/roles';
 import { belongsToTenant, filterByTenant, TENANT_REQUIRED_MESSAGE, withRequiredTenantId } from '@/lib/tenant';
 import { cn } from '@/lib/utils';
 
 const SUGGESTED_QUESTIONS = [
-  { icon: TrendingUp, label: 'O que está reduzindo meu lucro?', color: 'text-red-500', bg: 'bg-red-50 border-red-100 hover:border-red-300' },
-  { icon: Star, label: 'Quais produtos devo promover agora?', color: 'text-amber-500', bg: 'bg-amber-50 border-amber-100 hover:border-amber-300' },
-  { icon: DollarSign, label: 'Onde posso aumentar preços?', color: 'text-accent', bg: 'bg-accent/5 border-accent/20 hover:border-accent/50' },
-  { icon: ShoppingBag, label: 'Quais categorias são mais lucrativas?', color: 'text-blue-500', bg: 'bg-blue-50 border-blue-100 hover:border-blue-300' },
+  { icon: PackageSearch, label: 'Quais produtos devo revisar primeiro?', color: 'text-amber-500', bg: 'bg-amber-50 border-amber-100 hover:border-amber-300' },
+  { icon: TrendingUp, label: 'Onde estou perdendo margem?', color: 'text-red-500', bg: 'bg-red-50 border-red-100 hover:border-red-300' },
+  { icon: DollarSign, label: 'Quais itens estao em revisao manual?', color: 'text-accent', bg: 'bg-accent/5 border-accent/20 hover:border-accent/50' },
+  { icon: Target, label: 'Qual oportunidade tem maior impacto?', color: 'text-blue-500', bg: 'bg-blue-50 border-blue-100 hover:border-blue-300' },
   { icon: RefreshCw, label: 'Quais produtos precisam reposição?', color: 'text-purple-500', bg: 'bg-purple-50 border-purple-100 hover:border-purple-300' },
   { icon: Sparkles, label: 'Como reduzir meu estoque parado?', color: 'text-orange-500', bg: 'bg-orange-50 border-orange-100 hover:border-orange-300' },
 ];
@@ -24,7 +25,8 @@ export default function AIAssistant() {
   const { products } = useProducts();
   const { settings } = usePharmacy();
   const { tenantId, isSuperAdmin, loading: roleLoading } = useUserRole();
-  const { opportunities, stats: oppStats } = useOpportunities(products, settings);
+  const { recommendations, metrics } = useRecommendations();
+  const { opportunities, stats: oppStats } = buildRecommendationStats(recommendations);
   const [conversations, setConversations] = useState([]);
   const [currentConvId, setCurrentConvId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -36,13 +38,19 @@ export default function AIAssistant() {
   const loadConversations = useCallback(async () => {
     try {
       if (roleLoading) return;
-      const list = await base44.entities.ChatConversation.list('-created_date', 50);
+      if (!isSuperAdmin && !tenantId) {
+        setConversations([]);
+        return;
+      }
+      const list = isSuperAdmin
+        ? await base44.entities.ChatConversation.list('-created_date', 50)
+        : await base44.entities.ChatConversation.filter({ tenant_id: tenantId }, '-created_date', 50);
       const tenantConversations = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
       setConversations(tenantConversations);
       if (tenantConversations && tenantConversations.length > 0 && !currentConvId) {
         setCurrentConvId(tenantConversations[0].id);
       }
-    } catch (e) {
+    } catch {
       setConversations([]);
     }
   }, [currentConvId, tenantId, isSuperAdmin, roleLoading]);
@@ -58,10 +66,13 @@ export default function AIAssistant() {
         setMessages([]);
         return;
       }
-      const list = await base44.entities.ChatMessage.filter({ conversation_id: convId }, '-created_date', 200);
+      const messageFilter = isSuperAdmin
+        ? { conversation_id: convId }
+        : { conversation_id: convId, tenant_id: tenantId };
+      const list = await base44.entities.ChatMessage.filter(messageFilter, '-created_date', 200);
       const tenantMessages = isSuperAdmin ? (list || []) : filterByTenant(list, tenantId);
       setMessages(tenantMessages.reverse());
-    } catch (e) {
+    } catch {
       setMessages([]);
     }
   }, [conversations, tenantId, isSuperAdmin, roleLoading]);
@@ -71,6 +82,8 @@ export default function AIAssistant() {
 
   const buildContext = useCallback(() => {
     if (!products || products.length === 0) return 'Nenhum produto cadastrado ainda.';
+    const pendingRecommendations = recommendations.filter(item => item.status === 'pending').slice(0, 12);
+    const approvedRecommendations = recommendations.filter(item => item.status === 'approved').slice(0, 8);
     const classA = products.filter(p => p.abc_class === 'A').slice(0, 10);
     const classB = products.filter(p => p.abc_class === 'B').slice(0, 10);
     const classC = products.filter(p => p.abc_class === 'C').slice(0, 10);
@@ -92,6 +105,15 @@ RESUMO DO ESTOQUE:
 - Valor em estoque: ${formatCurrency(inventoryValue)}
 - Capital parado (Curva C): ${formatCurrency(classCValue)}
 
+RECOMENDACOES PENDENTES DO PLANO DE ACAO:
+- Pendentes: ${metrics.pendingCount}
+- Aprovadas: ${metrics.approvedCount}
+- Aplicadas: ${metrics.appliedCount}
+- Lucro potencial pendente: ${formatCurrency(metrics.estimatedPotential)}
+- Lucro realizado medido: ${formatCurrency(metrics.realizedGain)}
+TOP RECOMENDACOES PENDENTES: ${pendingRecommendations.map(r => `${r.title} | Produto: ${r.product_name || 'Produto'} | Atual: ${formatCurrency(r.current_price)} | Sugerido: ${formatCurrency(r.suggested_price)} | Ganho: ${formatCurrency(r.estimated_monthly_gain)}/mes | Confianca: ${r.confidence || 0}% | Motivo: ${r.reason || r.description || 'Sem motivo registrado'}`).join(' || ') || 'Nenhuma'}
+RECOMENDACOES APROVADAS PARA APLICAR: ${approvedRecommendations.map(r => `${r.title} | Produto: ${r.product_name || 'Produto'} | Ganho estimado: ${formatCurrency(r.estimated_monthly_gain)}/mes`).join(' || ') || 'Nenhuma'}
+
 PRODUTOS CURVA A: ${classA.map(p => `${p.name} | Custo: ${formatCurrency(p.cost)} | Preço: ${formatCurrency(p.selected_price)} | Margem: ${(p.margin_pct || 0).toFixed(1)}% | Vendas/mês: ${p.monthly_sales || 0}`).join('; ') || 'Nenhum'}
 PRODUTOS CURVA B: ${classB.map(p => `${p.name} | Custo: ${formatCurrency(p.cost)} | Preço: ${formatCurrency(p.selected_price)} | Margem: ${(p.margin_pct || 0).toFixed(1)}%`).join('; ') || 'Nenhum'}
 PRODUTOS CURVA C: ${classC.map(p => `${p.name} | Custo: ${formatCurrency(p.cost)} | Estoque: ${p.quantity || 0} | Valor parado: ${formatCurrency((p.cost || 0) * (p.quantity || 0))}`).join('; ') || 'Nenhum'}
@@ -104,7 +126,7 @@ OPORTUNIDADES (${opportunities.length} total):
 TOP OPORTUNIDADES: ${opportunities.filter(o => o.priority === 'alta').slice(0, 10).map(o => `[${o.type}] ${o.product_name}: ${o.description} (${formatCurrency(o.financial_impact_monthly)}/mês, ${o.confidence}%)`).join(' | ') || 'Nenhuma'}
 
 BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) => `${cat}: margem ${data.typical_margin}%, markup ${data.typical_markup}%, giro ${data.turnover_days}d`).join(' | ')}`;
-  }, [products, settings, opportunities, oppStats]);
+  }, [products, settings, opportunities, oppStats, recommendations, metrics]);
 
   const handleSend = async (text) => {
     const question = text || input;
@@ -121,7 +143,7 @@ BENCHMARKS: ${Object.entries(PHARMACY_BENCHMARKS.categories).map(([cat, data]) =
         convId = conv.id;
         setCurrentConvId(convId);
         setConversations(prev => [conv, ...prev]);
-      } catch (e) { return; }
+      } catch { return; }
     } else {
       const conversation = conversations.find(conv => conv.id === convId);
       if (!belongsToTenant(conversation, tenantId)) {
@@ -150,6 +172,8 @@ Estruture suas respostas com seções claras usando markdown:
 - Liste produtos específicos com dados concretos
 - Termine com um resumo executivo do impacto total estimado
 
+INSTRUCAO DE PRIORIDADE: se houver recomendacoes pendentes no Plano de Acao, comece por elas e so depois use produtos, estoque e benchmarks como apoio.
+
 ${context}
 
 PERGUNTA: ${question}
@@ -169,7 +193,7 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
       await base44.entities.ChatMessage.create(withRequiredTenantId({ conversation_id: convId, role: 'assistant', content: responseText }, tenantId));
       await base44.entities.ChatConversation.update(convId, { last_message: question.substring(0, 50) });
       loadConversations();
-    } catch (e) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Desculpe, tive um problema ao processar sua solicitação. Tente novamente.', conversation_id: convId }]);
     } finally {
       setLoading(false);
@@ -193,7 +217,7 @@ Responda de forma estruturada, prática e acionável, citando produtos, valores 
       await base44.entities.ChatConversation.delete(id);
       if (currentConvId === id) { setCurrentConvId(null); setMessages([]); }
       loadConversations();
-    } catch (e) {}
+    } catch {}
   };
 
   const highPriorityCount = opportunities.filter(o => o.priority === 'alta').length;

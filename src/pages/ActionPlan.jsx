@@ -20,9 +20,10 @@ const TYPE_ICONS = {
 };
 
 export default function ActionPlan() {
-  const { recommendations, loading, updateStatus } = useRecommendations();
+  const { recommendations, loading, updateStatus, applyRecommendation, metrics } = useRecommendations();
   const pending = recommendations.filter(item => item.status === 'pending');
-  const estimatedGain = pending.reduce((sum, item) => sum + Math.max(Number(item.estimated_monthly_gain || 0), 0), 0);
+  const approved = recommendations.filter(item => item.status === 'approved');
+  const applied = recommendations.filter(item => item.status === 'applied');
 
   if (loading) {
     return (
@@ -46,26 +47,44 @@ export default function ActionPlan() {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 min-w-full sm:min-w-[360px]">
-            <Metric label="Lucro recuperavel" value={formatCurrency(estimatedGain)} />
-            <Metric label="Pendentes" value={pending.length} />
+            <Metric label="Lucro potencial" value={formatCurrency(metrics.estimatedPotential)} />
+            <Metric label="Lucro realizado" value={formatCurrency(metrics.realizedGain)} />
+            <Metric label="Aprovadas" value={approved.length} />
+            <Metric label="Aplicadas" value={applied.length} />
           </div>
         </div>
       </section>
 
-      {pending.length === 0 ? (
+      {pending.length === 0 && approved.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card p-8 text-center">
           <Target className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <h2 className="text-lg font-bold text-foreground">Nenhuma recomendacao pendente</h2>
           <p className="text-sm text-muted-foreground mt-1">Importe uma NF ou revise produtos para gerar novas oportunidades.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
-          {pending.map(item => (
-            <RecommendationCard key={item.id} item={item} onStatus={updateStatus} />
-          ))}
+        <div className="space-y-5">
+          {pending.length > 0 && (
+            <RecommendationList title="Pendentes de decisao" items={pending} onStatus={updateStatus} onApply={applyRecommendation} />
+          )}
+          {approved.length > 0 && (
+            <RecommendationList title="Aprovadas para aplicar" items={approved} onStatus={updateStatus} onApply={applyRecommendation} />
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function RecommendationList({ title, items, onStatus, onApply }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-normal">{title}</h2>
+      <div className="grid grid-cols-1 gap-3">
+        {items.map(item => (
+          <RecommendationCard key={item.id} item={item} onStatus={onStatus} onApply={onApply} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -78,7 +97,7 @@ function Metric({ label, value }) {
   );
 }
 
-function RecommendationCard({ item, onStatus }) {
+function RecommendationCard({ item, onStatus, onApply }) {
   const Icon = TYPE_ICONS[item.type] || Target;
   const confidence = Number(item.confidence || 0);
   const confidenceTone = confidence >= 75
@@ -120,20 +139,47 @@ function RecommendationCard({ item, onStatus }) {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-border">
-        <button
-          type="button"
-          onClick={() => onStatus(item, 'approved')}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark"
-        >
-          <CheckCircle2 className="w-4 h-4" /> Aprovar
-        </button>
-        <button
-          type="button"
-          onClick={() => onStatus(item, 'rejected')}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted"
-        >
-          <XCircle className="w-4 h-4" /> Rejeitar
-        </button>
+        {item.status === 'pending' && (
+          <>
+            <button
+              type="button"
+              onClick={() => onStatus(item, 'approved')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark"
+            >
+              <CheckCircle2 className="w-4 h-4" /> Aprovar
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatus(item, 'rejected')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted"
+            >
+              <XCircle className="w-4 h-4" /> Rejeitar
+            </button>
+          </>
+        )}
+        {item.status === 'approved' && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                const value = window.prompt('Informe o ganho mensal realizado em R$ se ja souber. Deixe em branco para medir depois.', '');
+                if (value === null) return;
+                const normalized = String(value).replace(',', '.');
+                onApply(item, Number(normalized) || 0);
+              }}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-accent-foreground text-sm font-semibold hover:bg-accent-dark"
+            >
+              <CheckCircle2 className="w-4 h-4" /> Marcar aplicada
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatus(item, 'rejected')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted"
+            >
+              <XCircle className="w-4 h-4" /> Rejeitar
+            </button>
+          </>
+        )}
       </div>
     </article>
   );

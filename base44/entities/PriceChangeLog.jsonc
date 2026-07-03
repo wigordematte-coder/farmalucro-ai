@@ -1,0 +1,83 @@
+{
+  "name": "PriceChangeLog",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "title": "Tenant ID"
+    },
+    "recommendation_id": {
+      "type": "string",
+      "title": "Recomendacao"
+    },
+    "product_id": {
+      "type": "string",
+      "title": "Produto"
+    },
+    "product_name": {
+      "type": "string",
+      "title": "Nome do Produto"
+    },
+    "old_price": {
+      "type": "number",
+      "title": "Preco Anterior"
+    },
+    "new_price": {
+      "type": "number",
+      "title": "Novo Preco"
+    },
+    "old_margin": {
+      "type": "number",
+      "title": "Margem Anterior"
+    },
+    "new_margin": {
+      "type": "number",
+      "title": "Nova Margem"
+    },
+    "change_reason": {
+      "type": "string",
+      "title": "Motivo"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "applied",
+        "cancelled"
+      ],
+      "title": "Status",
+      "default": "planned"
+    },
+    "changed_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data da Mudanca"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "product_id",
+    "old_price",
+    "new_price",
+    "status"
+  ],
+  "x-base44-rls": {
+    "type": "tenant",
+    "tenantField": "tenant_id",
+    "clientCondition": "data.tenant_id == user.data.tenant_id",
+    "denyClientWhenTenantMissing": true,
+    "superAdminCondition": "user.data.app_role == 'super_admin'",
+    "serviceRoleAllowed": true,
+    "clientPermissions": {
+      "create": true,
+      "read": true,
+      "update": false,
+      "delete": false
+    },
+    "protectedFieldsForClient": [
+      "tenant_id",
+      "recommendation_id",
+      "product_id"
+    ]
+  }
+}

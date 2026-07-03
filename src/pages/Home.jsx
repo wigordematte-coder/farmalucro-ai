@@ -2,9 +2,9 @@ import { FileUp, TrendingUp, Tag, Sparkles, DollarSign, Boxes, RefreshCw, Star, 
 import { Link } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import { useRecommendations } from '@/hooks/useRecommendations';
-import { useOpportunities } from '@/hooks/useOpportunities';
 import { formatCurrency } from '@/lib/pricing';
 import { summarizeRecommendations } from '@/lib/recommendations';
+import { buildRecommendationStats } from '@/lib/recommendationMetrics';
 import { cn } from '@/lib/utils';
 import { useUserRole } from '@/lib/roles';
 import DailySummary from '@/components/dashboard/DailySummary';
@@ -35,9 +35,9 @@ function calcFarmaScore(products, opportunities, settings) {
 
 export default function Home() {
   const { products, loading, settings } = useProducts();
-  const { recommendations } = useRecommendations();
+  const { recommendations, metrics } = useRecommendations();
   const { tenantId } = useUserRole();
-  const { opportunities, stats, topCategories } = useOpportunities(products, settings);
+  const { opportunities, stats } = buildRecommendationStats(recommendations);
 
   if (loading) {
     return (
@@ -54,6 +54,7 @@ export default function Home() {
   const opps = (type) => opportunities.filter(o => o.type === type);
   const priorityActions = opportunities.filter(o => o.priority === 'alta').slice(0, 5);
   const byType = stats?.byType || {};
+  const topCategories = [];
   const farmaScore = calcFarmaScore(products, opportunities, settings);
   const recommendationSummary = summarizeRecommendations(recommendations);
 
@@ -64,6 +65,7 @@ export default function Home() {
         stats={stats}
         farmaScore={farmaScore}
         priorityActions={priorityActions}
+        metrics={metrics}
       />
 
       {/* Resumo diário premium */}
@@ -80,12 +82,12 @@ export default function Home() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        <OpportunityCard icon={DollarSign} title="Lucro Potencial" value={formatCurrency(stats?.totalMonthly || 0)} subtitle={`${formatCurrency(stats?.totalAnnual || 0)}/ano projetado`} color="accent" to="/precificacao" emphasis />
+        <OpportunityCard icon={DollarSign} title="Lucro Potencial" value={formatCurrency(stats?.totalMonthly || 0)} subtitle={`${formatCurrency(stats?.totalAnnual || 0)}/ano projetado`} color="accent" to="/plano-acao" emphasis />
         <OpportunityCard icon={TrendingUp} title="Margem Baixa" value={`${byType.margem_baixa || 0} produtos`} subtitle="Ajustes com prioridade financeira" color="red" to="/precificacao" />
         <OpportunityCard icon={Boxes} title="Estoque Parado" value={`${byType.estoque_parado || 0} produtos`} subtitle="Capital imobilizado para liberar" color="amber" to="/produtos" />
         <OpportunityCard icon={Tag} title="Promoções" value={`${byType.promocao_recomendada || 0} sugeridas`} subtitle="Acelerar saída com margem" color="primary" to="/consultor-ia" />
-        <OpportunityCard icon={RefreshCw} title="Risco de Ruptura" value={`${byType.reposicao_inteligente || 0} alertas`} subtitle="Evitar perda de venda" color="blue" to="/produtos" />
-        <OpportunityCard icon={Star} title="Categorias Top" value={`${topCategories.length} categorias`} subtitle="Foco recomendado pelo consultor" color="accent" to="/relatorios" />
+        <OpportunityCard icon={RefreshCw} title="Aprovadas" value={`${metrics.approvedCount || 0}`} subtitle="Prontas para aplicar" color="blue" to="/plano-acao" />
+        <OpportunityCard icon={Star} title="Lucro Realizado" value={formatCurrency(metrics.realizedGain || 0)} subtitle={`${metrics.appliedCount || 0} aplicadas`} color="accent" to="/resultados" />
       </div>
 
       {/* Ações Prioritárias */}
@@ -151,7 +153,7 @@ export default function Home() {
   );
 }
 
-function ExecutiveHeader({ opportunities, stats, farmaScore, priorityActions }) {
+function ExecutiveHeader({ opportunities, stats, farmaScore, priorityActions, metrics }) {
   const score = farmaScore ?? 0;
   const scoreLabel = score >= 80 ? 'Excelente' : score >= 60 ? 'Em evolução' : score > 0 ? 'Atenção' : 'Aguardando dados';
 
